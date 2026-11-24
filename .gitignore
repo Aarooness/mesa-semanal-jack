@@ -1,0 +1,16 @@
+comunidad.json
+comunidad.json.tmp
+.env
+.admin-inicial.txt
+plataforma.json
+plataforma.json.tmp
+.mesa-test-*/
+
+.cuentas-demo.txt
+
+.aurora-demo.json
+.env.*
+!.env.example
+*.pem
+*.key
+node_modules/

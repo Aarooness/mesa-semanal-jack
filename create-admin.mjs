@@ -1,0 +1,10 @@
+import {createPlatform} from './platform-api.mjs';
+import {randomBytes} from 'node:crypto';
+import fs from 'node:fs';
+import {fileURLToPath} from 'node:url';
+const directory=fileURLToPath(new URL('.',import.meta.url));
+const username=process.argv[2]||'administrador';
+const password=randomBytes(18).toString('base64url');
+createPlatform(directory).createUser({username,password},true);
+fs.writeFileSync(new URL('.admin-inicial.txt',import.meta.url),'Usuario: '+username+'\nContraseña inicial: '+password+'\nGuarda estos datos en un lugar privado. Este archivo no se sirve al navegador.\n',{flag:'wx'});
+console.log('Administrador creado. Credenciales en .admin-inicial.txt (archivo privado local).');

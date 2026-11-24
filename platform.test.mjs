@@ -1,0 +1,65 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import http from 'node:http';
+import {createPlatform} from './platform-api.mjs';
+test('Cuentas, permisos, recetas, tiendas, moderación y persistencia',async()=>{
+ const dir=fs.mkdtempSync(path.join(process.cwd(),'.mesa-test-'));
+ let searchRequest;
+ const platform=createPlatform(dir,{apiKey:'test-only',fetcher:async(url,init)=>{searchRequest=JSON.parse(init.body);return {ok:true,json:async()=>({results:[{title:'Tienda',url:'https://example.com',content:'Avena'},{title:'Inválido',url:'javascript:bad'}]})}}});
+ platform.createUser({username:'admin',password:'TestPassword_2026'},true);
+ const server=http.createServer(async(req,res)=>{const send=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(data))};try{await platform.handle(req,res,new URL(req.url,'http://localhost'),async req=>{let b='';for await(const c of req)b+=c;return JSON.parse(b)},send)||send(404,{})}catch(e){send(e.status||500,{error:e.message})}});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const base='http://127.0.0.1:'+server.address().port;
+ const call=async(route,data,cookie='',method=data?'POST':'GET')=>{const r=await fetch(base+'/api/'+route,{method,headers:{cookie,'Content-Type':'application/json'},...(data?{body:JSON.stringify(data)}:{})});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]}};
+ try{
+  assert.equal((await call('admin')).status,401);
+  const user=await call('register',{username:'Cocinero',password:'TestPassword_2026',role:'admin'});assert.equal(user.data.user.role,'user');assert.equal(user.data.user.username,'cocinero');assert.ok(user.cookie);
+  assert.equal((await call('register',{username:'COCINERO',password:'TestPassword_2026'})).status,409);
+  assert.equal((await call('admin',null,user.cookie)).status,403);
+  assert.equal((await call('products',{name:'Avena',unit:'500 g',price:6,description:'Natural'},user.cookie)).status,403);
+  const shop=await call('register',{username:'tiendita',password:'TestPassword_2026',role:'store',storeName:'La Tiendita'});
+  const product=await call('products',{name:'Avena',unit:'500 g',price:6,description:'Natural'},shop.cookie);assert.equal(product.status,201);
+  const privateFood=await call('private-foods',{name:'Mi mezcla',protein:25,fiber:8},user.cookie);
+  assert.equal(privateFood.status,201);assert.deepEqual((await call('private-foods',null,shop.cookie)).data,[]);
+  const formula={title:'Mi receta',preparation:'Mezclar',lines:[{id:privateFood.data.id,grams:40}]};
+  assert.equal((await call('community',formula,shop.cookie)).status,400);
+  const calculated=await call('community',formula,user.cookie);assert.equal(calculated.data.nutrition.protein,10);assert.equal(calculated.data.nutrition.fiber,3.2);
+  await call('content',{kind:'post',id:calculated.data.id},user.cookie,'DELETE');
+  const second=await call('products',{name:'Granola',unit:'250 g',price:10,description:'Natural'},shop.cookie);
+  const offer=await call('combos',{name:'Mi combo',items:[{id:product.data.id,discount:50},{id:second.data.id,discount:10}]},shop.cookie);
+  assert.equal(offer.status,201);assert.equal(offer.data.total,12);
+  const payload={title:'Avena con fruta',ingredients:[{name:'Avena',amount:'40 g'}],preparation:'Cocinar y servir.',nutrition:{protein:10,carbs:30,fat:5},productIds:[product.data.id]};
+  assert.equal((await call('community',payload,user.cookie)).status,400);
+  const post=await call('community',payload,shop.cookie);assert.equal(post.data.nutrition.kcal,205);
+  assert.equal((await call('community',{...payload,nutrition:{protein:-1,carbs:20,fat:3}},shop.cookie)).status,400);
+  assert.equal((await call('community',{type:'plan',title:'Semana',days:Array(7).fill(post.data.id)},user.cookie)).status,403);
+  assert.equal((await call('community',{type:'plan',title:'Semana',days:Array(7).fill(post.data.id)},shop.cookie)).status,201);
+  assert.equal((await call('content',{id:post.data.id,kind:'post'},user.cookie,'DELETE')).status,404);
+  const admin=await call('login',{username:'admin',password:'TestPassword_2026'});
+  const dishEdit={id:post.data.id,title:'Avena de la casa',preparation:'Mezclar y servir en un tazón.'};
+  assert.equal((await call('admin/dish',dishEdit,shop.cookie,'PATCH')).status,403);
+  assert.equal((await call('admin/dish',dishEdit,admin.cookie,'PATCH')).status,200);
+  assert.equal((await call('community')).data.find(p=>p.id===post.data.id).title,dishEdit.title);
+  assert.equal((await call('admin/dish',dishEdit,admin.cookie,'DELETE')).status,400);
+  const looseDish=await call('community',payload,shop.cookie);
+  assert.equal((await call('admin/dish',{id:looseDish.data.id},admin.cookie,'DELETE')).status,200);
+  for(const state of ['demo activa','congelada','demo activa']){
+   const change={id:shop.data.user.id,state};
+   assert.equal((await call('admin/subscription',change,user.cookie,'PATCH')).status,403);
+   assert.equal((await call('admin/subscription',change,admin.cookie,'PATCH')).status,200);
+   assert.equal((await call('account',null,shop.cookie)).data.user.subscription,state);
+  }
+  const dashboard=await call('admin',null,admin.cookie);assert.equal(dashboard.data.users.length,3);assert.ok(dashboard.data.users.every(u=>!u.hash&&!u.salt));
+  assert.equal((await call('admin/users',{id:admin.data.user.id,status:'suspended'},admin.cookie,'PATCH')).status,400);
+  assert.equal((await call('admin/posts',{id:post.data.id,status:'hidden'},admin.cookie,'PATCH')).status,200);
+  assert.equal((await call('community')).data.filter(x=>x.type==='recipe').length,0);
+  assert.equal((await call('search',{query:'avena',city:'Lima',independent:true},user.cookie)).data.results.length,1);assert.ok(searchRequest.exclude_domains.includes('wong.pe'));
+  await call('admin/users',{id:shop.data.user.id,status:'suspended'},admin.cookie,'PATCH');assert.equal((await call('store',null,shop.cookie)).status,401);assert.equal((await call('products')).data.length,0);
+  const fresh=createPlatform(dir);assert.equal(fresh.requireUser({headers:{cookie:user.cookie}}).username,'cocinero');
+  await call('logout',{},user.cookie);assert.equal((await call('account',null,user.cookie)).data.user,null);
+  assert.ok(JSON.parse(fs.readFileSync(path.join(dir,'plataforma.json'),'utf8')).users.every(u=>!u.password));
+ }finally{await new Promise(resolve=>server.close(resolve));fs.rmSync(dir,{recursive:true,force:true})}
+});
