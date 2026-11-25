@@ -1,13 +1,13 @@
 # Mesa Semanal · quién hace qué
 
-La compra empieza con una pregunta concreta: «Ya escogí mis desayunos, ¿qué ingredientes me faltan y dónde me conviene comprarlos?». Hay cuatro experiencias y tres roles de cuenta. Suscriptor es un usuario con acceso adicional mientras su suscripción esté vigente.
+La compra empieza con una pregunta concreta: «Ya escogí mis desayunos, ¿qué ingredientes me faltan y dónde me conviene comprarlos?». Hay cuatro experiencias y tres roles de cuenta. Suscriptor es un usuario con acceso a la comparación conjunta de ofertas locales mientras su suscripción esté vigente.
 
 ```mermaid
 flowchart LR
  U[Usuario] --> M[Armar menú, cotizar y compartir recetas]
  U --> D[Ver directorio de tiendas y desayunos]
  U --> S[Seleccionar un paquete de suscripción]
- S --> P[Registrar referencia de pago demo]
+ S --> P[Solicitar confirmación de pago demo]
  A[Administrador] --> V[Confirmar pago]
  V --> SU[Usuario suscriptor]
  SU --> L[Comparar ingredientes locales]
@@ -21,7 +21,7 @@ flowchart LR
 
 | Vista | Qué puede hacer | Regla importante |
 |---|---|---|
-| Usuario | Ver tiendas, crear recetas y menús, comprar desayunos publicados y registrar una solicitud de suscripción. | El pago demo requiere confirmación de administración. Una referencia registrada con un medio no puede reutilizarse. |
+| Usuario | Entrar a cada tienda, revisar y comprar sus ingredientes o desayunos, crear recetas y menús y registrar una solicitud de suscripción. | El pago demo requiere confirmación de administración. El sistema asigna un identificador al pedido. |
 | Suscriptor | Además puede comparar precios locales de ingredientes y añadir envases completos. | El precio reducido compara soles por gramo contra al menos una de las cuatro cadenas con precio referencial. La pantalla indica cuál. |
 | Tienda | Escoge ingredientes, desayunos o ambos. Publica la foto, el peso del envase y el precio final. Todas las tiendas pueden crear recetas promocionales gratuitas. | Una tienda de desayunos usa ingredientes existentes. El panel permite partir de una plantilla con preparación y composición calculada. Una tienda de ingredientes etiqueta la oferta con el alimento del catálogo. |
 | Administrador | Confirma pagos, modera platos y cuentas, activa o congela demos y revisa pedidos y movimientos. | Congelar una suscripción restringe nuevas compras premium. Un pedido previo conserva su precio y su historial de estado. |
@@ -36,10 +36,10 @@ sequenceDiagram
  participant M as Mesa Semanal
  actor T as Tienda
  actor A as Administración
- U->>M: Añade productos y registra medio y referencia de prueba
- M->>T: Genera un pedido por tienda, con cantidades y precios
+ U->>M: Añade productos y selecciona medio de pago
+ M->>T: Agrupa por tienda y separa ingredientes de desayunos
  T->>M: Acepta el pedido
- A->>M: Confirma la referencia
+ A->>M: Confirma el pago demo
  T->>M: Marca enviado e indica cuándo llegará
  U->>M: Confirma recepción o deja una queja
 ```

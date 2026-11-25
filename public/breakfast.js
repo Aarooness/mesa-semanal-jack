@@ -24,6 +24,10 @@ for(const row of ["Yogur con mango|yogur mango|4","Tostada de palta|pan palta|5"
  const instruction={0:'Lava y pela la fruta. Licúa con el líquido indicado o con agua al gusto.',2:'Cuece el cereal en agua hasta que esté tierno. Añade los acompañamientos.',3:'Ralla la zanahoria. Bate el huevo y cocina ambos hasta que el huevo cuaje.',4:'Sirve el yogur frío y añade los acompañamientos lavados y cortados, si corresponde.',5:'Tuesta el pan y distribuye encima los ingredientes.',6:'Lava la fruta, córtala y sirve con sus acompañamientos.',7:'Tritura los ingredientes con un poco de agua. Cocina discos en una sartén por ambos lados hasta que cuajen.'};
  recipes.push({name,ids,cat,prep:4,cook:cat===2?15:[3,5,7].includes(cat)?6:0,steps:[items==='lucuma'?'Lava la lúcuma, pélala y retira las semillas. Licúa la pulpa con agua hasta lograr la textura deseada.':instruction[cat]]});
 }
+for(const recipe of recipes){
+ const slug=recipe.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replaceAll(' ','-');
+ recipe.photo='plato-'+slug+'.jpg';
+}
 const recipeNotes={
  'Batido de cacao y plátano':['El plátano maduro aporta dulzor y cuerpo. El cacao queda más uniforme si primero lo mezclas con una cucharada del yogur.','Haz una pausa a mitad del licuado para recoger el cacao de las paredes. Sirve cuando la bebida tenga un color uniforme.'],
  'Batido de yogur con almendras':['Un batido espeso con la textura del plátano y un toque de almendra. Reserva parte de las almendras para terminar el vaso.','Licúa primero a velocidad baja y después aumenta hasta que desaparezcan los trozos grandes. Reparte la almendra reservada por encima.'],

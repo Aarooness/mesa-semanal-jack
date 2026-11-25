@@ -1,0 +1,8 @@
+**
+!Dockerfile
+!package.json
+!server.mjs
+!platform-api.mjs
+!shopping-search.mjs
+!public/
+!public/**

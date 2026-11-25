@@ -6,12 +6,12 @@ import {foods,byId} from './public/data.js';
 import {createPlatform} from './platform-api.mjs';
 try{process.loadEnvFile(fileURLToPath(new URL('.env',import.meta.url)))}catch(e){if(e.code!=='ENOENT')throw e}
 const root=path.dirname(fileURLToPath(import.meta.url)), web=path.join(root,'public');
-const db=path.join(root,'comunidad.json'), port=Number(process.env.PORT||8734);
-const platform=createPlatform(root);
+const db=path.join(process.env.DATA_DIR||root,'comunidad.json'), port=Number(process.env.PORT||8734);
+const platform=createPlatform(root,{dataDir:process.env.DATA_DIR||root});
 function templates(){return fs.existsSync(db)?JSON.parse(fs.readFileSync(db,'utf8')):[]}
 const validDays=(days,ids)=>Array.isArray(days)&&days.length===7&&days.every(day=>Array.isArray(day)&&day.length>0&&new Set(day).size===day.length&&day.every(id=>ids.includes(id)));
 function fail(msg,status=400){throw Object.assign(new Error(msg),{status})}
-async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>(req.url==='/api/products'?400000:64000))fail('Solicitud demasiado grande.',413)}try{return JSON.parse(raw)}catch{fail('Datos incorrectos.')}}
+async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>(['/api/products','/api/community','/api/store-logo'].includes(req.url)?400000:64000))fail('Solicitud demasiado grande.',413)}try{return JSON.parse(raw)}catch{fail('Datos incorrectos.')}}
 const server=http.createServer(async(req,res)=>{
   const send=(code,value)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value))};
   try{
@@ -32,8 +32,8 @@ const server=http.createServer(async(req,res)=>{
     if(req.method!=='GET'||url.pathname.includes('..'))fail('Ruta inexistente.',404);
     const file=path.join(web,url.pathname==='/'?'index.html':url.pathname);
     if(!file.startsWith(web+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile())fail('Ruta inexistente.',404);
-    const type={'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.png':'image/png','.jpg':'image/jpeg'};
+    const type={'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg'};
     res.writeHead(200,{'Content-Type':type[path.extname(file)]||'application/octet-stream','Cache-Control':'no-cache'});fs.createReadStream(file).pipe(res);
   }catch(err){send(err.status||500,{error:err.status?err.message:'No se pudo completar la operación.'})}
 });
-server.listen(port,'127.0.0.1',()=>console.log('Mesa Semanal http://127.0.0.1:'+port));
+server.listen(port,process.env.HOST||'127.0.0.1',()=>console.log('Mesa Semanal http://127.0.0.1:'+port));

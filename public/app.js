@@ -113,6 +113,7 @@ main.addEventListener('change',e=>{
   if(el.dataset.mark){s.done[el.dataset.mark]=el.checked;save();render();return}if(el.dataset.cartgrams){if(el.value&&el.checkValidity())s.cart[el.dataset.cartgrams]=Number(el.value)*(el.dataset.cartgrams==='huevo'?50:1);save();render();return}if(!field||field==='slider')return;
   if(el.type==='number'&&!el.checkValidity()){el.reportValidity();return}
   switch(field){
+    case 'quoteGrams':setQuoteGrams(id,el.valueAsNumber);break;
     case 'quoteList':s.quoteSelection=el.checked?{list:el.value,key:quoteKey()}:null;break;
     case 'focusDay':focusDay=Number(el.value);resetBuy();break;
     case 'scope':scope=el.value;resetBuy();break;
@@ -145,14 +146,20 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-action]');if(!b)return;
   const {action,id}=b.dataset;
   try{switch(action){
+    case 'refreshQuote':{
+      for(const input of main.querySelectorAll('[data-field="quoteGrams"]')){
+        if(!input.reportValidity())return;
+        if(required()[input.dataset.id]!==input.valueAsNumber)setQuoteGrams(input.dataset.id,input.valueAsNumber);
+      }
+      save();render();notice('Precio de referencia actualizado.');break;
+    }
     case 'quoteStep':{
-      const base=baseRequired(),key=quoteKey();if(!Object.hasOwn(base,id))break;
-      s.quoteAdjustments??={};const basket=s.quoteAdjustments[key]??={};
       const target=Math.max(0,required()[id]+Number(b.dataset.direction)*purchaseStep(id));
-      basket[id]=+(target-base[id]+(marketState.reserved||[]).filter(i=>i.food===id).reduce((n,i)=>n+i.grams*i.qty,0)).toFixed(1);resetBuy();save();render();
+      setQuoteGrams(id,target);save();render();
       const next=main.querySelector('[data-action="quoteStep"][data-id="'+id+'"][data-direction="'+b.dataset.direction+'"]:not(:disabled)');
       next?.focus({preventScroll:true});break;
     }
+    case 'foodPreferences':profileDraft=structuredClone(s.profile);profileStep=4;setPage(6);break;
     case 'prevProfile':captureProfile(main.querySelector('form'),profileDraft,profileStep);profileStep--;render();break;
     case 'likeMeal':case 'saveMeal':{
       const list=action==='likeMeal'?'likes':'savedMeals',key=[...slots(s,focusDay)[activeSlot]].sort().join('|');
@@ -273,6 +280,20 @@ function savedView(){
 function menu(){return '<h1>Arma tu menú</h1>'+period()+templateCards(preview,s.portion)+savedView()+'<section class="panel"><h2>Otras formas de empezar</h2>'+btn('Empezar manualmente','manual')+'<div class="actions"><label>Comunidad local <select id="community">'+opts(community.length?community.map(t=>[t.id,t.name]):[['','Aún no hay plantillas']],null)+'</select></label>'+btn('Usar plantilla compartida','use')+btn('Actualizar','reload')+'</div><small>'+esc(communityError||'Al aplicar una plantilla compartida se incorporan sus ingredientes y porciones.')+'</small></section><h2>Semana editable · '+esc(s.origin.startsWith('Ollama')?'Semana guardada':s.origin)+'</h2>'+(!ids().length?empty():'')+weekdays.map((name,i)=>'<div class="day"><b>'+name+'</b><div>'+ids().map(id=>'<label><input type="checkbox" data-field="day" data-day="'+i+'" '+dataId(id)+' '+(s.days[i].includes(id)?'checked':'')+'>'+byId[id].name+' · '+s.portion[id]+' g</label>').join('')+'</div></div>').join('')+summary()+'<div class="panel"><label>Nombre público de la plantilla <input id="templateName" maxlength="70" placeholder="Mi semana de avena"></label>'+btn('Publicar en comunidad local','publish')+'</div>'+btn('Comparar mi compra','shopping','primary')}
 async function api(path,arg){const r=await fetch('/api/'+path,arg?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(arg)}:{});const data=await r.json();if(!r.ok)throw Error(data.error||'Error del servidor');return data}
 async function loadCommunity(){try{community=await api('templates');communityError=''}catch(e){communityError=e.message}if(page===2)render()}
+function setQuoteGrams(id,target){
+  const base=baseRequired();
+  if(!Object.hasOwn(base,id)||!Number.isFinite(target)||target<0)return;
+  s.quoteAdjustments??={};
+  const adjustments=s.quoteAdjustments[quoteKey()]??={};
+  const reserved=(marketState.reserved||[]).filter(i=>i.food===id).reduce((n,i)=>n+i.grams*i.qty,0);
+  adjustments[id]=+(target-base[id]+reserved).toFixed(1);
+  resetBuy();
+}
+// Keep a pending manual edit until the refresh button reads it (blur redraws the list).
+main.addEventListener('mousedown',e=>{
+  if(e.target.closest('[data-action="refreshQuote"]')&&document.activeElement?.dataset.field==='quoteGrams')e.preventDefault();
+});
+main.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.field==='quoteGrams'){e.preventDefault();if(e.target.reportValidity())e.target.blur()}});
 function required(){return Object.fromEntries(Object.entries(baseRequired()).map(([id,g])=>[id,Math.max(0,+(g-(marketState.reserved||[]).filter(i=>i.food===id).reduce((n,i)=>n+i.grams*i.qty,0)+(s.quoteAdjustments?.[quoteKey()]?.[id]||0)).toFixed(1))]))}
 const baseRequired=()=>scope==='cart'?s.cart:scope==='recipe'?Object.fromEntries(grams(s,focusDay,Math.min(activeSlot,slots(s,focusDay).length-1)).map(([id,g])=>[id,g*people(s)])):basket(s,shoppingDays());
 function shopBox(shop){const q=quote(required(),s.pantry,shop),ok=q.filter(r=>r.available).length,sum=q.reduce((a,r)=>a+(r.cost||0),0);

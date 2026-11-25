@@ -57,3 +57,5 @@ button.shuffle-dish{background:transparent;color:var(--accent);border-color:tran
 }
 
 .nutrition-dashboard summary{cursor:pointer}.nutrition-dashboard summary>*{display:block;margin:6px 0}.nutrition-dashboard summary b{color:var(--accent)}.nutrition-dashboard table{width:100%;border-collapse:collapse}.nutrition-dashboard th,.nutrition-dashboard td{text-align:right;padding:6px 2px}.nutrition-dashboard th:first-child{text-align:left}.nutrition-dashboard tr{border-bottom:1px solid var(--line)}
+
+.quantity-stepper label{display:flex;align-items:center;gap:4px;margin:0}.quantity-stepper input{width:6.5em;text-align:right}

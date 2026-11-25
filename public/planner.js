@@ -23,22 +23,33 @@ export function suggestedEnergy(profile){
  return values.length?Math.max(10,10*Math.round(values[Math.floor(values.length/2)]/10)):400;
 }
 export function seed(s,all=false,regenerate=false){
- const choicesAll=choices(s),preferred=choicesAll.filter(r=>s.profile?.categories.includes(r.cat));
+ const choicesAll=choices(s),preferred=choicesAll.filter(r=>s.profile?.categories?.includes(r.cat));
  const target=Number(s.profile?.kcal)||400;
  const energy=r=>nutrition(r.ids.map(id=>[id,s.portion[id]||byId[id].portion])).kcal;
- const poolBase=preferred.length?preferred:choicesAll;
- const near=poolBase.filter(r=>energy(r)*2.5>=target&&energy(r)*.5<=target);
- const pool=(near.length?near:poolBase).slice(0,14);
- if(regenerate)for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+ function candidates(items){
+  const near=items.filter(r=>energy(r)*2.5>=target&&energy(r)*.5<=target);
+  const pool=(near.length?near:items).slice(0,14);
+  if(regenerate)for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+  return pool;
+ }
+ const favorites=candidates(preferred),others=candidates(choicesAll.filter(r=>!preferred.includes(r)));
+ const editable=[],fixedFavorites=[];
  for(let i=0;i<7;i++){
-  if(regenerate&&slots(s,i).some((ids,k)=>ids.length&&s.done[i+':'+k]))continue;
-  if(!all&&s.days[i].length&&s.days[i].every(id=>allowed(id,s.profile)))continue;
-  const r=pool[i%pool.length];if(!r){s.days[i]=[];continue}
+  const locked=regenerate&&slots(s,i).some((ids,k)=>ids.length&&s.done[i+':'+k]);
+  if(locked||(!all&&s.days[i].length&&s.days[i].every(id=>allowed(id,s.profile)))){
+   if(s.days[i].length&&preferred.includes(meal(s.days[i])))fixedFavorites.push(i);
+  }else editable.push(i);
+ }
+ const quota=others.length?Math.min(editable.length,Math.max(0,5-fixedFavorites.length)):editable.length;
+ let used=0,variety=0;
+ for(const [index,i] of editable.entries()){
+  const useFavorite=favorites.length&&Math.round((index+1)*quota/editable.length)>Math.round(index*quota/editable.length);
+  const r=useFavorite?favorites[used++%favorites.length]:others[variety++%others.length];if(!r){s.days[i]=[];continue}
   s.extra[i]=[];s.extraScale[i]=[];s.days[i]=[...r.ids];s.scales[i]=Math.min(2.5,Math.max(.5,Math.round(20*target/energy(r))/20));
   for(const id of r.ids)s.portion[id]??=byId[id].portion;
  }
 }
-export function photo(r){return ({0:r.ids.includes('fresa')?'licuado.jpg':'batido.jpg',1:'licuado.jpg',2:'porridge.jpg',3:'huevos.jpg',4:'parfait.jpg',5:'tostada.jpg',6:'frutas.jpg',7:'panqueques.jpg',8:'huevo.png'})[r.cat]||r.ids[0]+'.png'}
+export function photo(r){return r.photo||recipes.find(item=>item.name===r.name)?.photo||({0:r.ids.includes('fresa')?'licuado.jpg':'batido.jpg',1:'licuado.jpg',2:'porridge.jpg',3:'huevos.jpg',4:'parfait.jpg',5:'tostada.jpg',6:'frutas.jpg',7:'panqueques.jpg',8:'huevo.png'})[r.cat]||r.ids[0]+'.png'}
 
 export function planView(s,day,dayOnly){
  const days=dayOnly?[day]:weekdays.map((_,i)=>i);
@@ -51,7 +62,7 @@ export function planView(s,day,dayOnly){
   const r=meal(s.days[first]);
   feature='<aside class="recipe-cover"><img src="/fotos/'+photo(r)+'" alt="'+r.name+'"><div><small>Receta del '+weekdays[first].toLowerCase()+'</small><h2>'+r.name+'</h2><p>'+icon('clock')+' '+(r.prep+r.cook)+' min · '+num(nutrition(rowsFor(s,first)).kcal)+' kcal</p><button class="primary" data-action="detail" data-day="'+first+'">Ver preparación '+icon('chevron')+'</button></div></aside>';
  }
- return '<div class="plan-title"><h1>Mi menú</h1><details class="plan-actions"><summary>Acciones '+icon('more')+'</summary><div><button data-action="suggest">Regenerar días</button><button data-action="nav" data-page="2">Explorar plantillas</button></div></details></div><div class="plan-columns"><section><div class="segments"><button data-action="dayView" aria-pressed="'+dayOnly+'">Día</button><button data-action="week" aria-pressed="'+!dayOnly+'">Semana</button></div><div class="week-caption">'+(dayOnly?'<label>Día <select data-field="focusDay">'+weekdays.map((n,i)=>'<option value="'+i+'" '+(i===day?'selected':'')+'>'+n+'</option>').join('')+'</select></label>':'Lunes a domingo')+'<small>'+people(s)+' '+(people(s)===1?'persona':'personas')+'</small></div><p class="move-help">'+icon('shuffle')+' Arrastra los platos entre días o usa sus opciones.</p>'+rows+'</section>'+feature+'</div>';
+ return '<div class="plan-title"><h1>Mi menú</h1><details class="plan-actions"><summary>Acciones '+icon('more')+'</summary><div><button data-action="suggest">Regenerar días</button>'+ (s.profile?'<button data-action="foodPreferences">Cambiar desayunos preferidos</button>':'')+'<button data-action="nav" data-page="2">Explorar plantillas</button></div></details></div><div class="plan-columns"><section><div class="segments"><button data-action="dayView" aria-pressed="'+dayOnly+'">Día</button><button data-action="week" aria-pressed="'+!dayOnly+'">Semana</button></div><div class="week-caption">'+(dayOnly?'<label>Día <select data-field="focusDay">'+weekdays.map((n,i)=>'<option value="'+i+'" '+(i===day?'selected':'')+'>'+n+'</option>').join('')+'</select></label>':'Lunes a domingo')+'<small>'+people(s)+' '+(people(s)===1?'persona':'personas')+'</small></div><p class="move-help">'+icon('shuffle')+' Arrastra los platos entre días o usa sus opciones.</p>'+rows+'</section>'+feature+'</div>';
 }
 export function detailView(s,day){
  const r=meal(s.days[day]),rows=rowsFor(s,day),n=nutrition(rows),scale=s.scales[day]||1;

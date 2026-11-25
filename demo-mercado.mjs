@@ -21,7 +21,7 @@ for(const [username,name,specialty,count] of [['mercado_aurora','Mercado Aurora'
   const f=byId[stock[i]],r=recipes[i],dish=specialty==='desayunos',title=dish?r.name:f.name+' · '+name;
   if(own.products.some(p=>p.name===title))continue;
   const components=dish?r.ids.map(id=>({id,grams:Math.max(5,Math.round(byId[id].portion/5)*5)})):[];
-  await api('products',{kind:dish?'desayuno':'ingrediente',food:f.id,name:title,unit:dish?components.reduce((s,c)=>s+c.grams,0)+' g':'100 g',price:dish?6+i:+(.95+i*.18+(username==='mercado_aurora'?0:.12)).toFixed(2),components,preparation:dish?r.steps.join(' '):'',location:'Lima · demostración',description:dish?r.description:'Envase de 100 g para completar tu menú.',photo:'/fotos/'+(dish?['batido.jpg','licuado.jpg','porridge.jpg','huevos.jpg','parfait.jpg'][i]:f.id+'.png')});
+  await api('products',{kind:dish?'desayuno':'ingrediente',food:f.id,name:title,unit:dish?components.reduce((s,c)=>s+c.grams,0)+' g':'100 g',price:dish?6+i:+(.95+i*.18+(username==='mercado_aurora'?0:.12)).toFixed(2),components,preparation:dish?r.steps.join(' '):'',location:'Lima · demostración',description:dish?r.description:'Envase de 100 g para completar tu menú.',photo:'/fotos/'+(dish?r.photo:f.id+'.png')});
  }
 }
 await use('suscriptor_mesa','user');const buyer=(await api('account')).user;

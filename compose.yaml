@@ -1,0 +1,14 @@
+services:
+  app:
+    image: aarooness0/mesa-semanal:latest
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8734:8734"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8734/api/account').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 4

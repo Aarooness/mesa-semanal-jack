@@ -37,3 +37,5 @@ export function quote(required,pantry,shop) {
     return {id,g,missing,packs,available,cost:available?packs*(f.price[shop]||0):null,left:available?(pantry[id]||0)+packs*f.pack[shop]-g:null};
   });
 }
+
+export const deliverySlots=['9:00 a. m. – 12:00 p. m.','12:00 p. m. – 3:00 p. m.','3:00 p. m. – 6:00 p. m.','6:00 p. m. – 9:00 p. m.'];
