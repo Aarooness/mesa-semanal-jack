@@ -26,3 +26,5 @@ La foto de referencia de la lúcuma y su composición aproximada proceden de la 
 ## Tiendas locales y reservas
 
 La canasta local y los pagos de demostración siguen las [reglas de pedidos y suscripción](CASOS-DE-USO.md). Ingredientes y desayunos se distinguen por la especialidad de la tienda. Los gramos de ofertas locales pendientes reducen la cantidad por cotizar en cadenas. En Publicar producto, el peso de cada componente avanza de 5 g en 5 g y el vendedor fija el precio final del envase.
+
+Mi tienda separa ingredientes, productos en venta y recetas. El servidor comprueba la propiedad antes de editar un producto. La cotización muestra costo proporcional e importe en caja. Los enlaces de fuentes y los precios de referencia requieren comprobación en tienda.

@@ -14,3 +14,5 @@ plataforma.json.tmp
 *.pem
 *.key
 node_modules/
+
+data/

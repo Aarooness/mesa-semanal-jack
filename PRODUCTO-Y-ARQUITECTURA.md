@@ -36,3 +36,13 @@ Si el volumen de consultas crece, se podría separar la actualización de precio
 | E · Tienda profesional | Calendario de promociones, métricas agregadas de recetas guardadas y comparación de conversiones de combos. | Cuántos comercios renuevan tras medir ventas atribuibles. |
 
 Son alternativas para validar, sin cobros habilitados. Como referencia, Eat This Much publica planificación semanal y gestión de sobrantes entre sus funciones premium. [Planes oficiales](https://www.eatthismuch.com/pricing).
+## Evolución propuesta hacia puertos y adaptadores
+
+Hoy un proceso Node.js sirve el navegador y la API, con datos operativos en JSON y una integración externa para buscar fuentes. El registro de auditoría conserva acciones. El sistema consulta el estado guardado directamente. Docker empaqueta todo el servidor en una sola unidad desplegable.
+
+1. Extraer CotizarLista con sus reglas de despensa, faltantes y envases completos.
+2. Definir un puerto CatalogoDePrecios con una operación obtenerOfertas. Crear un adaptador del catálogo actual y uno en memoria para pruebas.
+3. Conectar un controlador HTTP al caso de uso e inyectar el adaptador al arrancar. Mantener la vista de compra como consumidor del resultado.
+4. Probar con node:test una bolsa de 500 g a S/ 6. Con 200 g pendientes corresponde una bolsa y con 600 g, dos. Cambiar de adaptador sin editar el cálculo demuestra la independencia.
+
+El puerto de búsqueda documental de Tavily puede evolucionar aparte. Una página relacionada requiere validar producto, presentación y precio antes de usarla como oferta.

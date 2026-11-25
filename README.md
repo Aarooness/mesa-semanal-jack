@@ -35,3 +35,9 @@ Para reproducir los dos productos de Mercado Aurora en una instalación nueva, i
 ## Mercado local de demostración
 
 Con el servidor activo, `node demo-mercado.mjs` carga dos catálogos de ingredientes y uno de desayunos. En una instalación nueva, Administración debe activar la demo de `suscriptor_mesa` si el script no encuentra una cuenta administradora en el archivo local de cuentas demo. Las credenciales generadas se guardan en `.cuentas-demo.txt`, excluido de Git. Los pagos se confirman manualmente en Pedidos.
+
+## Entrega
+
+[Presentación PowerPoint](Mesa-Semanal.pptx) · [Casos de uso](CASOS-DE-USO.md) · [Arquitectura](PRODUCTO-Y-ARQUITECTURA.md).
+
+Compose publica 8734 y monta ./data en /data. En Ubuntu prepara la carpeta con escritura para el UID 1000 y un .env privado. Ejecuta docker compose pull y docker compose up -d --wait. La instalación nueva comienza vacía. Tavily requiere TAVILY_API_KEY.

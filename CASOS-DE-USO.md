@@ -53,3 +53,13 @@ Paquetes de demostración de 1, 3 y 12 meses. La confirmación manual activa el 
 En la copia revisada, `src/components/FaqChatbot.tsx` llama a `searchFaq` de `src/utils/faqSearch.ts`. El buscador usa temas, palabras normalizadas, sinónimos y preguntas precargadas. La respuesta seleccionada se añade al historial. La función separada de canasta con IA tiene un cliente de modelos en `api/src/yapa_sdd/ia.py`.
 
 En Mesa Semanal empezaría con preguntas sobre porciones, precios referenciales, reservas y recepción. Después añadiría búsqueda por tema y sinónimos, y evaluaría qué consultas quedan sin respuesta. Una fase posterior podría consultar un modelo desde el servidor con fragmentos de esas reglas, sin compartir credenciales ni datos de otros pedidos.
+
+## Casos de uso de la entrega
+
+| Actor | Acción y resultado |
+|---|---|
+| Comprador | Elige tres envases de 100 g y ve 300 g en la canasta con el subtotal correspondiente. Puede corregir la cantidad antes del pedido. |
+| Tienda | Edita el precio, peso y composición de sus publicaciones. Los cambios llegan a las canastas abiertas y ofertas asociadas. El pedido registrado conserva sus condiciones. |
+| Administrador | Abre recetas y productos, comunica observaciones al autor o deniega y retira la publicación. La publicación inicial es automática. |
+| Comprador o tienda | Si administración rechaza un pedido antes del pago, puede iniciar un nuevo intento. El rechazado libera la reserva y sigue en el historial. El servidor admite un solo sucesor por intento. |
+| Tienda y comprador | La tienda selecciona una franja de tres horas entre las 9 y las 21 para despachar un pedido pagado. El comprador confirma recepción o registra un reclamo. |
