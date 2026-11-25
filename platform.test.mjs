@@ -19,16 +19,16 @@ test('Cuentas, permisos, recetas, tiendas, moderación y persistencia',async()=>
   const user=await call('register',{username:'Cocinero',password:'TestPassword_2026',role:'admin'});assert.equal(user.data.user.role,'user');assert.equal(user.data.user.username,'cocinero');assert.ok(user.cookie);
   assert.equal((await call('register',{username:'COCINERO',password:'TestPassword_2026'})).status,409);
   assert.equal((await call('admin',null,user.cookie)).status,403);
-  assert.equal((await call('products',{name:'Avena',unit:'500 g',price:6,description:'Natural'},user.cookie)).status,403);
+  assert.equal((await call('products',{name:'Avena',unit:'500 g',price:6,description:'Natural',photo:'https://example.org/avena.jpg'},user.cookie)).status,403);
   const shop=await call('register',{username:'tiendita',password:'TestPassword_2026',role:'store',storeName:'La Tiendita'});
-  const product=await call('products',{name:'Avena',unit:'500 g',price:6,description:'Natural'},shop.cookie);assert.equal(product.status,201);
+  const product=await call('products',{name:'Avena',unit:'500 g',price:6,description:'Natural',photo:'https://example.org/avena.jpg'},shop.cookie);assert.equal(product.status,201);
   const privateFood=await call('private-foods',{name:'Mi mezcla',protein:25,fiber:8},user.cookie);
   assert.equal(privateFood.status,201);assert.deepEqual((await call('private-foods',null,shop.cookie)).data,[]);
   const formula={title:'Mi receta',preparation:'Mezclar',lines:[{id:privateFood.data.id,grams:40}]};
   assert.equal((await call('community',formula,shop.cookie)).status,400);
   const calculated=await call('community',formula,user.cookie);assert.equal(calculated.data.nutrition.protein,10);assert.equal(calculated.data.nutrition.fiber,3.2);
   await call('content',{kind:'post',id:calculated.data.id},user.cookie,'DELETE');
-  const second=await call('products',{name:'Granola',unit:'250 g',price:10,description:'Natural'},shop.cookie);
+  const second=await call('products',{name:'Granola',unit:'250 g',price:10,description:'Natural',photo:'https://example.org/avena.jpg'},shop.cookie);
   const offer=await call('combos',{name:'Mi combo',items:[{id:product.data.id,discount:50},{id:second.data.id,discount:10}]},shop.cookie);
   assert.equal(offer.status,201);assert.equal(offer.data.total,12);
   const payload={title:'Avena con fruta',ingredients:[{name:'Avena',amount:'40 g'}],preparation:'Cocinar y servir.',nutrition:{protein:10,carbs:30,fat:5},productIds:[product.data.id]};
@@ -52,7 +52,28 @@ test('Cuentas, permisos, recetas, tiendas, moderación y persistencia',async()=>
    assert.equal((await call('admin/subscription',change,admin.cookie,'PATCH')).status,200);
    assert.equal((await call('account',null,shop.cookie)).data.user.subscription,state);
   }
-  const dashboard=await call('admin',null,admin.cookie);assert.equal(dashboard.data.users.length,3);assert.ok(dashboard.data.users.every(u=>!u.hash&&!u.salt));
+  const ingredientShop=await call('register',{username:'huertito',password:'TestPassword_2026',role:'store',specialty:'ingredientes',storeName:'Huertito'});
+  const strawberry={kind:'ingrediente',food:'fresa',name:'Fresas',unit:'100 g',price:1,photo:'https://example.org/fresa.jpg',description:'Para desayuno'};
+  const pr=await call('products',strawberry,ingredientShop.cookie);
+  assert.equal(pr.status,201);assert.equal((await call('products',payload,ingredientShop.cookie)).status,403);
+  assert.equal((await call('market',{action:'add',id:pr.data.id},user.cookie)).status,403);
+  await call('admin/subscription',{id:user.data.user.id,state:'demo activa'},admin.cookie,'PATCH');
+  await call('market',{action:'add',id:pr.data.id},user.cookie);
+  assert.equal((await call('market',null,user.cookie)).data.reserved[0].grams,100);
+  await call('market',{action:'checkout',method:'Yape',reference:'DEMO-123'},user.cookie);
+  const order=(await call('market',null,ingredientShop.cookie)).data.orders[0];
+  for(const [cookie,state] of [[ingredientShop.cookie,'aceptado'],[admin.cookie,'pagado'],[ingredientShop.cookie,'enviado'],[user.cookie,'recibido']]){
+    assert.equal((await call('market',{action:'transition',id:order.id,state,eta:'Mañana'},cookie)).status,200);
+  }
+  assert.equal((await call('market',null,user.cookie)).data.reserved.length,0);
+  await call('admin/subscription',{id:user.data.user.id,state:'congelada'},admin.cookie,'PATCH');
+  const request=await call('market',{action:'subscribe',months:3,method:'Plin',reference:'SUB-3M'},user.cookie);
+  assert.equal(request.status,200);
+  const sub=(await call('market',null,user.cookie)).data.orders.find(o=>o.months===3);assert.equal(sub.total,24);
+  assert.equal((await call('account',null,user.cookie)).data.user.premium,false);
+  assert.equal((await call('market',{action:'transition',id:sub.id,state:'pagado'},admin.cookie)).status,200);
+  assert.ok(Date.parse((await call('account',null,user.cookie)).data.user.expires)>Date.now());
+  const dashboard=await call('admin',null,admin.cookie);assert.equal(dashboard.data.users.length,4);assert.ok(dashboard.data.users.every(u=>!u.hash&&!u.salt));
   assert.equal((await call('admin/users',{id:admin.data.user.id,status:'suspended'},admin.cookie,'PATCH')).status,400);
   assert.equal((await call('admin/posts',{id:post.data.id,status:'hidden'},admin.cookie,'PATCH')).status,200);
   assert.equal((await call('community')).data.filter(x=>x.type==='recipe').length,0);

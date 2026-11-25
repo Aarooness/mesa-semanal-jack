@@ -7,13 +7,14 @@ import {randomBytes,randomUUID,scryptSync,timingSafeEqual,createHash} from 'node
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status})};
 const text=(v,max=200)=>{if(typeof v!=='string'||!v.trim()||v.length>max)fail('Completa los campos y respeta sus límites.');return v.trim()};
 const number=(v,min=0,max=10000)=>{if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)fail('Cantidad fuera de rango.');return v};
-const publicUser=u=>({id:u.id,username:u.username,role:u.role,status:u.status,subscription:u.subscription||"sin demo",storeName:u.storeName,createdAt:u.createdAt});
+const premium=u=>u?.subscription==='demo activa'&&(!u.expires||Date.parse(u.expires)>Date.now());
+const publicUser=u=>({id:u.id,username:u.username,role:u.role,status:u.status,specialty:u.specialty||'ambos',premium:premium(u),expires:u.expires,subscription:u.subscription||"sin demo",storeName:u.storeName,createdAt:u.createdAt});
 const digest=v=>createHash('sha256').update(v).digest('hex');
 export function createPlatform(directory,{apiKey=process.env.TAVILY_API_KEY,fetcher=fetch}={}){
  const shoppingLookup=createShoppingLookup(apiKey,fetcher);
  const filename=path.join(directory,'plataforma.json');
  const db=fs.existsSync(filename)?JSON.parse(fs.readFileSync(filename,'utf8')):{users:[],sessions:[],posts:[],products:[],audit:[]};
- db.privateFoods??=[];db.combos??=[];
+ db.orders??=[];db.carts??={};db.privateFoods??=[];db.combos??=[];
  const persist=()=>{fs.writeFileSync(filename+'.tmp',JSON.stringify(db,null,2));fs.renameSync(filename+'.tmp',filename)};
  const audit=(actor,action,target)=>{db.audit.unshift({actor:actor.username,action,target,at:new Date().toISOString()});db.audit=db.audit.slice(0,300)};
  const limits=new Map();
@@ -24,21 +25,21 @@ export function createPlatform(directory,{apiKey=process.env.TAVILY_API_KEY,fetc
   const password=input.password;if(typeof password!=='string'||password.length<10||password.length>128)fail('La contraseña debe tener entre 10 y 128 caracteres.');
   const salt=randomBytes(16).toString('hex');
   const role=admin?'admin':input.role==='store'?'store':'user';
-  const u={id:randomUUID(),username,salt,hash:scryptSync(password,salt,64).toString('hex'),role,status:'active',storeName:role==='store'?text(input.storeName,80):'',createdAt:new Date().toISOString()};db.users.push(u);audit(u,'Creó cuenta',u.username);persist();return u;
+  const specialty=input.specialty||'ambos';if(!['ambos','ingredientes','desayunos'].includes(specialty))fail('Especialidad desconocida.');const u={specialty,id:randomUUID(),username,salt,hash:scryptSync(password,salt,64).toString('hex'),role,status:'active',storeName:role==='store'?text(input.storeName,80):'',createdAt:new Date().toISOString()};db.users.push(u);audit(u,'Creó cuenta',u.username);persist();return u;
  }
  function session(req){const token=/(?:^|;\s*)mesa_session=([^;]+)/.exec(req.headers.cookie||'')?.[1];const s=token&&db.sessions.find(s=>s.hash===digest(token)&&s.expires>Date.now());return s&&db.users.find(u=>u.id===s.userId&&u.status==='active')}
  function requireUser(req,role){const u=session(req);if(!u)fail('Inicia sesión para continuar.',401);if(role&&u.role!==role)fail('No tienes permisos para esta operación.',403);return u}
  function author(id){const u=db.users.find(u=>u.id===id);return u?{username:u.username,role:u.role,storeName:u.storeName}:{username:'cuenta_eliminada',role:'user'}}
  function visible(post){return post.status==='published'&&db.users.some(u=>u.id===post.authorId&&u.status==='active')}
  function productPhoto(value){
-  if(!value)return '';
+  if(!value)return '';if(typeof value==='string'&&/^\/fotos\/[a-z0-9_-]+\.(png|jpg)$/.test(value)&&fs.existsSync(path.join(directory,'public',value)))return value;
   if(typeof value==='string'&&value.length<=380000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/.test(value)&&Buffer.from(value.split(',')[1],'base64').subarray(0,3).toString('hex')==='ffd8ff')return value;
   if(typeof value==='string'&&/^https:\/\//i.test(value))return text(value,1800);
   fail('Usa una foto JPEG subida o una dirección HTTPS.');
  }
  function productComponents(items){
   if(!Array.isArray(items)||items.length>40)fail('Revisa los ingredientes.');
-  return items.map(x=>{if(!x||!Object.hasOwn(byId,x.id))fail('Ingrediente desconocido.');return {id:x.id,grams:number(x.grams,.1,100000),price:number(x.price,0,100000)}});
+  return items.map(x=>{if(!x||!Object.hasOwn(byId,x.id))fail('Ingrediente desconocido.');return {id:x.id,grams:number(x.grams,.1,100000),}});
  }
  function recipe(input){
   if(!Array.isArray(input.ingredients)||input.ingredients.length<1||input.ingredients.length>40)fail('Añade entre 1 y 40 ingredientes.');
@@ -50,10 +51,41 @@ export function createPlatform(directory,{apiKey=process.env.TAVILY_API_KEY,fetc
  }
  return {createUser,requireUser,async handle(req,res,url,body,send){
   const p=url.pathname,method=req.method;if(!p.startsWith('/api/'))return false;
+  if(p==='/api/store-directory'&&method==='GET'){send(200,db.users.filter(a=>a.role==='store'&&a.status==='active').map(a=>({name:a.storeName,username:a.username,specialty:a.specialty||'ambos',ingredients:db.products.filter(i=>i.authorId===a.id&&i.kind==='ingrediente').length})));return true}
+  if(p==='/api/market'){
+   const u=requireUser(req),cart=db.carts[u.id]??=[],ownOrders=db.orders.filter(o=>o.buyer===u.id);
+   const visibleOrders=db.orders.filter(o=>u.role==='admin'||o.buyer===u.id||o.store===u.id);
+   if(method==='GET'){const offers=db.products.filter(pr=>db.users.some(a=>a.id===pr.authorId&&a.status==='active')&&(pr.kind!=='ingrediente'||premium(u))).map(pr=>({...pr,storeName:author(pr.authorId).storeName}));
+    send(200,{offers,cart,orders:visibleOrders,sub:premium(u),reserved:[...cart,...ownOrders.filter(o=>!['recibido','reclamo'].includes(o.state)).flatMap(o=>o.items||[])]});return true}
+   const x=await body(req);
+   if(x.action==='add'){
+    if(u.role!=='user')fail('Usa una cuenta personal.',403);
+    const pr=db.products.find(pr=>pr.id===x.id&&db.users.some(a=>a.id===pr.authorId&&a.status==='active'));if(!pr||pr.kind==='ingrediente'&&!premium(u))fail('Requiere suscripción activa.',403);
+    const existing=cart.find(i=>i.id===pr.id);if(existing)existing.qty++;else cart.push({id:pr.id,name:pr.name,food:pr.food,store:pr.authorId,shop:author(pr.authorId).storeName,grams:parseFloat(pr.unit)*(pr.unit.endsWith('kg')?1000:1)||0,price:pr.price,qty:1});db.carts[u.id]=cart;
+   }else if(x.action==='minus'){const i=cart.findIndex(r=>r.id===x.id);if(i>=0&&--cart[i].qty<=0)cart.splice(i,1)}
+   else if(['checkout','subscribe'].includes(x.action)){
+    if(u.role!=='user'||!['Yape','Plin','Transferencia'].includes(x.method))fail('Revisa el pago.');
+    const reference=text(x.reference,80);if(db.orders.some(o=>o.reference===reference&&o.method===x.method))fail('Referencia ya registrada.');
+    const common={buyer:u.id,buyerName:u.username,state:'pendiente de pago',method:x.method,reference,created:new Date().toISOString()};
+    if(x.action==='subscribe'){if(![1,3,12].includes(x.months))fail('Duración inválida.');db.orders.unshift({...common,id:randomUUID(),months:x.months,total:({1:9,3:24,12:84})[x.months]})}
+    else{if(!cart.length||cart.some(i=>i.food&&!premium(u)||!db.products.some(p=>p.id===i.id&&db.users.some(a=>a.id===p.authorId&&a.status==='active'))))fail('Revisa tu canasta y suscripción.');
+     for(const store of new Set(cart.map(i=>i.store))){const items=cart.filter(i=>i.store===store);db.orders.unshift({...common,id:randomUUID(),store,items,total:+items.reduce((t,i)=>t+i.price*i.qty,0).toFixed(2)})}db.carts[u.id]=[]}
+    audit(u,'Registró pedido',reference);
+   }else if(x.action==='transition'){
+    const o=db.orders.find(o=>o.id===x.id);if(!o)fail('Pedido inexistente.',404);
+    if(x.state==='aceptado'&&o.state==='pendiente de pago'&&u.role==='store'&&o.store===u.id){}
+    else if(x.state==='pagado'&&['pendiente de pago','aceptado'].includes(o.state)&&u.role==='admin'){if(o.months){const buyer=db.users.find(a=>a.id===o.buyer);buyer.subscription='demo activa';const until=new Date(Math.max(Date.now(),Date.parse(buyer.expires)||0));until.setMonth(until.getMonth()+o.months);buyer.expires=until.toISOString()}}
+    else if(x.state==='enviado'&&o.state==='pagado'&&o.store===u.id&&u.role==='store'){o.eta=text(x.eta,80)}
+    else if(['recibido','reclamo'].includes(x.state)&&o.state==='enviado'&&o.buyer===u.id){if(x.state==='reclamo')o.note=text(x.note,500)}
+    else fail('Transición no permitida.',403);
+    o.state=x.state;audit(u,'Pedido '+o.state,o.id);
+   }else fail('Acción desconocida.');
+   persist();send(200,{ok:true});return true;
+  }
   if(p==='/api/private-foods'){
    const u=requireUser(req);
    if(method==='GET'){send(200,db.privateFoods.filter(f=>f.owner===u.id));return true}
-   if(method==='POST'){const x=await body(req);const n=Object.fromEntries(['protein','carbs','fat','fiber','vitamin'].map(k=>[k,number(x[k]??0,0,k==='vitamin'?10000:100)]));if(!Object.values(n).some(Boolean))fail('Indica al menos un nutriente por 100 g.');const food={id:randomUUID(),owner:u.id,name:text(x.name,80),...n};db.privateFoods.push(food);persist();send(201,food);return true}
+   if(method==='POST'){if(u.role==='store'&&u.specialty==='desayunos')fail('Selecciona un ingrediente existente.',403);const x=await body(req);const n=Object.fromEntries(['protein','carbs','fat','fiber','vitamin'].map(k=>[k,number(x[k]??0,0,k==='vitamin'?10000:100)]));if(!Object.values(n).some(Boolean))fail('Indica al menos un nutriente por 100 g.');const food={id:randomUUID(),owner:u.id,name:text(x.name,80),...n};db.privateFoods.push(food);persist();send(201,food);return true}
   }
   if(p==='/api/combos'&&method==='POST'){const u=requireUser(req,'store'),x=await body(req);if(!Array.isArray(x.items)||x.items.length<2||new Set(x.items.map(i=>i.id)).size!==x.items.length)fail('Elige al menos dos productos diferentes.');const items=x.items.map(i=>{const pr=db.products.find(pr=>pr.id===i.id&&pr.authorId===u.id);if(!pr)fail('Producto ajeno o inexistente');return {name:pr.name,id:i.id,price:pr.price,discount:number(i.discount,0,100)}});const combo={id:randomUUID(),authorId:u.id,name:text(x.name,100),items,total:+items.reduce((a,i)=>a+i.price*(1-i.discount/100),0).toFixed(2)};db.combos.push(combo);audit(u,'Publicó oferta',combo.name);persist();send(201,combo);return true}
   if(p==='/api/combos'&&method==='GET'){send(200,db.combos.filter(c=>db.users.some(u=>u.id===c.authorId&&u.status==='active')).map(c=>({...c,author:author(c.authorId)})));return true}
@@ -85,15 +117,17 @@ if(data.productIds.some(id=>!db.products.some(pr=>pr.id===id&&pr.authorId===u.id
    const post={id:randomUUID(),authorId:u.id,type,title:text(input.title,100),...data,status:'published',createdAt:new Date().toISOString()};db.posts.unshift(post);audit(u,'Publicó '+type,post.title);persist();send(201,{...post,author:author(u.id)});return true;
   }
   if(p==='/api/store'&&method==='GET'){const u=requireUser(req,'store');send(200,{products:db.products.filter(p=>p.authorId===u.id),combos:db.combos.filter(p=>p.authorId===u.id),posts:db.posts.filter(p=>p.authorId===u.id)});return true}
-  if(p==='/api/products'&&method==='GET'){send(200,db.products.filter(p=>db.users.some(u=>u.id===p.authorId&&u.status==='active')).map(p=>({...p,author:author(p.authorId)})));return true}
-  if(p==='/api/products'&&method==='POST'){const u=requireUser(req,'store'),input=await body(req);const product={id:randomUUID(),authorId:u.id,name:text(input.name,100),unit:text(input.unit,60),price:number(input.price,0,100000),description:text(input.description,600),location:input.location?text(input.location,100):'',photo:productPhoto(input.photo),design:number(input.design??0,0,2),components:productComponents(input.components??[])};db.products.unshift(product);audit(u,'Publicó producto',product.name);persist();send(201,product);return true}
+  if(p==='/api/products'&&method==='GET'){send(200,db.products.filter(p=>(p.kind!=='ingrediente'||premium(session(req)))&&db.users.some(u=>u.id===p.authorId&&u.status==='active')).map(p=>({...p,author:author(p.authorId)})));return true}
+  if(p==='/api/products'&&method==='POST'){const u=requireUser(req,'store'),input=await body(req);const kind=input.kind||'desayuno';if(!['ingrediente','desayuno'].includes(kind)||kind==='ingrediente'&&u.specialty==='desayunos'||kind==='desayuno'&&u.specialty==='ingredientes')fail('Producto fuera de tu especialidad.',403);
+if(!input.photo)fail('Añade una foto al producto.');if(kind==='ingrediente'&&(!Object.hasOwn(byId,input.food)||!/^\d+(\.\d+)? (g|kg)$/.test(input.unit)||parseFloat(input.unit)<=0))fail('Elige un ingrediente y su peso.');const components=productComponents(input.components??[]);const composition=components.length?nutrients(components.map(i=>[i.id,i.grams])):null;
+const product={preparation:typeof input.preparation==='string'?input.preparation.slice(0,2000):'',composition,kind,food:kind==='ingrediente'?input.food:null,id:randomUUID(),authorId:u.id,name:text(input.name,100),unit:text(input.unit,60),price:number(input.price,0,100000),description:text(input.description,600),location:input.location?text(input.location,100):'',photo:productPhoto(input.photo),design:number(input.design??0,0,2),components};db.products.unshift(product);audit(u,'Publicó producto',product.name);persist();send(201,product);return true}
   if(p==='/api/content'&&method==='DELETE'){const u=requireUser(req),input=await body(req);const list=input.kind==='product'?db.products:db.posts;const i=list.findIndex(x=>x.id===input.id&&x.authorId===u.id);if(i<0)fail('Contenido inexistente.',404);if(input.kind==='product'&&db.posts.some(p=>p.productIds?.includes(input.id)))fail('Este producto está vinculado a una receta.');if(db.posts.some(p=>p.days?.includes(input.id)))fail('Esta receta está incluida en un plan semanal.');audit(u,'Retiró contenido',list[i].title||list[i].name);list.splice(i,1);persist();send(200,{ok:true});return true}
   if(p==='/api/admin'&&method==='GET'){requireUser(req,'admin');send(200,{users:db.users.map(publicUser),posts:db.posts.map(p=>({...p,author:author(p.authorId)})),products:db.products.map(p=>({...p,author:author(p.authorId)})),audit:db.audit,searchConfigured:!!apiKey});return true}
   if(p==='/api/admin/subscription'&&method==='PATCH'){
    const u=requireUser(req,'admin'),x=await body(req),account=db.users.find(a=>a.id===x.id);
    if(!account||account.role==='admin'||!['demo activa','congelada'].includes(x.state))fail('Cuenta o estado inválido.');
    if(x.state==='congelada'&&account.subscription!=='demo activa')fail('Primero activa la demo.');
-   account.subscription=x.state;audit(u,'Suscripción '+x.state,account.username);persist();send(200,{ok:true});return true;
+   account.subscription=x.state;if(x.state==='demo activa')account.expires=null;audit(u,'Suscripción '+x.state,account.username);persist();send(200,{ok:true});return true;
   }
   if(p==='/api/admin/dish'&&['PATCH','DELETE'].includes(method)){
    const u=requireUser(req,'admin'),x=await body(req),post=db.posts.find(p=>p.id===x.id&&p.type==='recipe'&&db.users.some(a=>a.id===p.authorId&&a.role==='store'));

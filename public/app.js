@@ -1,6 +1,6 @@
 import {discovery,checkout,slots,grams,purchaseStep} from './revision.js';
 import {icon} from './icons.js';
-import {currentUser,renderPlatform} from './platform.js';
+import {currentUser,renderPlatform,basketPanel,marketState} from './platform.js';
 import {meal,allowed,recipes,nutrition} from './breakfast.js';
 import {profileDefaults,profileForm,captureProfile} from './profile.js';
 import {people,rowsFor,basket,seed,suggestedEnergy,planView,detailView,mixedQuote,splitBox} from './planner.js';
@@ -149,7 +149,7 @@ document.addEventListener('click',async e=>{
       const base=baseRequired(),key=quoteKey();if(!Object.hasOwn(base,id))break;
       s.quoteAdjustments??={};const basket=s.quoteAdjustments[key]??={};
       const target=Math.max(0,required()[id]+Number(b.dataset.direction)*purchaseStep(id));
-      basket[id]=+(target-base[id]).toFixed(1);resetBuy();save();render();
+      basket[id]=+(target-base[id]+(marketState.reserved||[]).filter(i=>i.food===id).reduce((n,i)=>n+i.grams*i.qty,0)).toFixed(1);resetBuy();save();render();
       const next=main.querySelector('[data-action="quoteStep"][data-id="'+id+'"][data-direction="'+b.dataset.direction+'"]:not(:disabled)');
       next?.focus({preventScroll:true});break;
     }
@@ -257,7 +257,7 @@ function render(){
  const names=['search','list','stack','basket','track','plan','profile'];
  const navButton=i=>btn(icon(names[i])+'<span>'+labels[i]+'</span>','nav','nav-item','data-page="'+i+'" '+(i===page?'aria-current="page"':''));
  nav.innerHTML=[5,0,3,6].map(navButton).join('')+'<details class="more-nav"><summary>'+icon('more')+'<span>Más</span></summary><div>'+[1,2,4].map(navButton).join('')+'</div></details>';
- document.body.dataset.view=page===5&&detail?'receta':routes[page];main.innerHTML=[()=>discovery(s,discTab),selection,menu,()=>checkout(s,required(),scope,focusDay,selected,source),tracking,()=>detail&&s.days[focusDay].length?detailView(activeSlot?{...s,days:s.days.map((ids,d)=>d===focusDay?(s.extra[d][activeSlot-1]||ids):ids),scales:s.scales.map((v,d)=>d===focusDay?(s.extraScale[d][activeSlot-1]||1):v)}:s,focusDay):planView(s,focusDay,dayOnly),()=>profileForm(profileDraft,profileStep)][page]()}
+ document.body.dataset.view=page===5&&detail?'receta':routes[page];main.innerHTML=[()=>discovery(s,discTab),selection,menu,()=>basketPanel(currentUser)+checkout(s,required(),scope,focusDay,selected,source,marketState.sub),tracking,()=>detail&&s.days[focusDay].length?detailView(activeSlot?{...s,days:s.days.map((ids,d)=>d===focusDay?(s.extra[d][activeSlot-1]||ids):ids),scales:s.scales.map((v,d)=>d===focusDay?(s.extraScale[d][activeSlot-1]||1):v)}:s,focusDay):planView(s,focusDay,dayOnly),()=>profileForm(profileDraft,profileStep)][page]()}
 function products(){return foods.filter(f=>allowed(f.id,s.profile)).filter(f=>(category==='Todos'||f.group===category)&&f.name.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es'))).map(f=>'<article class="card" draggable="true" data-food="'+f.id+'"><img src="/fotos/'+f.id+'.png" alt="'+f.name+'"><small>'+f.group+'</small><h3>'+f.name+'</h3><div class="tag">'+f.tag+'</div><p>'+f.desc+'</p>'+btn(s.portion[f.id]?'En mi selección':'Añadir a mi selección','add','',dataId(f.id))+'</article>').join('')||'<p>Sin coincidencias.</p>'}
 function catalog(){return '<h1>¿Qué te gustaría desayunar?</h1><p>Explora ingredientes y arma tu selección para la semana.</p><div class="filters"><label>Buscar <input id="search" value="'+esc(search)+'" placeholder="Avena, quinua…"></label><label>Grupo <select data-field="category">'+opts(['Todos',...new Set(foods.map(f=>f.group))].map(v=>[v,v]),category)+'</select></label></div><div class="drop" id="drop">Suelta aquí un ingrediente · '+ids().length+' seleccionados '+btn('Ajustar cantidades','selection','primary')+'</div><div class="grid" id="products">'+products()+'</div>'}
 function add(id){if(!byId[id]||!allowed(id,s.profile))return;if(!s.portion[id]){s.portion[id]=byId[id].portion;s.buy={};save()}render();notice(byId[id].name+' en tu selección')}
@@ -273,7 +273,7 @@ function savedView(){
 function menu(){return '<h1>Arma tu menú</h1>'+period()+templateCards(preview,s.portion)+savedView()+'<section class="panel"><h2>Otras formas de empezar</h2>'+btn('Empezar manualmente','manual')+'<div class="actions"><label>Comunidad local <select id="community">'+opts(community.length?community.map(t=>[t.id,t.name]):[['','Aún no hay plantillas']],null)+'</select></label>'+btn('Usar plantilla compartida','use')+btn('Actualizar','reload')+'</div><small>'+esc(communityError||'Al aplicar una plantilla compartida se incorporan sus ingredientes y porciones.')+'</small></section><h2>Semana editable · '+esc(s.origin.startsWith('Ollama')?'Semana guardada':s.origin)+'</h2>'+(!ids().length?empty():'')+weekdays.map((name,i)=>'<div class="day"><b>'+name+'</b><div>'+ids().map(id=>'<label><input type="checkbox" data-field="day" data-day="'+i+'" '+dataId(id)+' '+(s.days[i].includes(id)?'checked':'')+'>'+byId[id].name+' · '+s.portion[id]+' g</label>').join('')+'</div></div>').join('')+summary()+'<div class="panel"><label>Nombre público de la plantilla <input id="templateName" maxlength="70" placeholder="Mi semana de avena"></label>'+btn('Publicar en comunidad local','publish')+'</div>'+btn('Comparar mi compra','shopping','primary')}
 async function api(path,arg){const r=await fetch('/api/'+path,arg?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(arg)}:{});const data=await r.json();if(!r.ok)throw Error(data.error||'Error del servidor');return data}
 async function loadCommunity(){try{community=await api('templates');communityError=''}catch(e){communityError=e.message}if(page===2)render()}
-function required(){return Object.fromEntries(Object.entries(baseRequired()).map(([id,g])=>[id,Math.max(0,+(g+(s.quoteAdjustments?.[quoteKey()]?.[id]||0)).toFixed(1))]))}
+function required(){return Object.fromEntries(Object.entries(baseRequired()).map(([id,g])=>[id,Math.max(0,+(g-(marketState.reserved||[]).filter(i=>i.food===id).reduce((n,i)=>n+i.grams*i.qty,0)+(s.quoteAdjustments?.[quoteKey()]?.[id]||0)).toFixed(1))]))}
 const baseRequired=()=>scope==='cart'?s.cart:scope==='recipe'?Object.fromEntries(grams(s,focusDay,Math.min(activeSlot,slots(s,focusDay).length-1)).map(([id,g])=>[id,g*people(s)])):basket(s,shoppingDays());
 function shopBox(shop){const q=quote(required(),s.pantry,shop),ok=q.filter(r=>r.available).length,sum=q.reduce((a,r)=>a+(r.cost||0),0);
 return '<article class="card"><h3>'+stores[shop]+'</h3><b>'+money(sum)+(ok<q.length?' · parcial':' · lista completa')+'</b><p>'+ok+' de '+q.length+' ingredientes cubiertos</p>'+(s.budget&&ok===q.length?'<p>'+(sum>s.budget?'Excede por ':'Margen disponible: ')+money(Math.abs(s.budget-sum))+'</p>':'')+btn(!split&&shop===s.shop?'Tienda seleccionada':'Elegir tienda','choose',!split&&shop===s.shop?'primary':'','data-shop="'+shop+'"')+'</article>'}

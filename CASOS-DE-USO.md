@@ -1,54 +1,55 @@
-# Qué hace cada cuenta en Mesa Semanal
+# Mesa Semanal · quién hace qué
 
-El punto de partida es el mismo para todos: un desayuno tiene ingredientes y cantidades. Lo que cambia es qué quiere hacer cada persona con esa información.
+La compra empieza con una pregunta concreta: «Ya escogí mis desayunos, ¿qué ingredientes me faltan y dónde me conviene comprarlos?». Hay cuatro experiencias y tres roles de cuenta. Suscriptor es un usuario con acceso adicional mientras su suscripción esté vigente.
 
 ```mermaid
 flowchart LR
- U[Usuario] --> M[Armar menú y ajustar porciones]
- M --> C[Comparar la compra por tienda]
- C --> F[Consultar fichas y precios]
- U --> R[Crear y publicar desayuno]
- T[Tienda] --> R
- T --> P[Publicar producto con foto y precio]
- T --> O[Crear combo o plan semanal]
- R --> COM[Comunidad]
- P --> COM
- O --> COM
- A[Administrador] --> MOD[Revisar platos y moderar publicaciones]
- A --> SUS[Activar o congelar demos]
- A --> H[Consultar historial de movimientos]
+ U[Usuario] --> M[Armar menú, cotizar y compartir recetas]
+ U --> D[Ver directorio de tiendas y desayunos]
+ U --> S[Seleccionar un paquete de suscripción]
+ S --> P[Registrar referencia de pago demo]
+ A[Administrador] --> V[Confirmar pago]
+ V --> SU[Usuario suscriptor]
+ SU --> L[Comparar ingredientes locales]
+ L --> C[Añadir envases a la canasta]
+ C --> R[Descontar gramos de la lista pendiente]
+ T[Tienda] --> O[Publicar ofertas según especialidad]
+ T --> REC[Publicar recetas para promocionarse]
+ T --> E[Aceptar y despachar pedidos]
+ A --> MOD[Revisar cuentas, platos, suscripciones y movimientos]
 ```
 
-## Un producto, desde la tienda hasta la comunidad
+| Vista | Qué puede hacer | Regla importante |
+|---|---|---|
+| Usuario | Ver tiendas, crear recetas y menús, comprar desayunos publicados y registrar una solicitud de suscripción. | El pago demo requiere confirmación de administración. Una referencia registrada con un medio no puede reutilizarse. |
+| Suscriptor | Además puede comparar precios locales de ingredientes y añadir envases completos. | El precio reducido compara soles por gramo contra al menos una de las cuatro cadenas con precio referencial. La pantalla indica cuál. |
+| Tienda | Escoge ingredientes, desayunos o ambos. Publica la foto, el peso del envase y el precio final. Todas las tiendas pueden crear recetas promocionales gratuitas. | Una tienda de desayunos usa ingredientes existentes. El panel permite partir de una plantilla con preparación y composición calculada. Una tienda de ingredientes etiqueta la oferta con el alimento del catálogo. |
+| Administrador | Confirma pagos, modera platos y cuentas, activa o congela demos y revisa pedidos y movimientos. | Congelar una suscripción restringe nuevas compras premium. Un pedido previo conserva su precio y su historial de estado. |
+
+## Ejemplo de cantidades y pedidos
+
+Si necesito 500 g de fresa y añado una bandeja local de 100 g, quedan 400 g por cotizar antes de descontar la despensa. El importe local depende del precio de la bandeja. El de supermercado depende de cuántos envases completos necesito. La reserva sigue contando mientras el pedido esté pendiente o en envío. Al confirmar recepción o registrar una queja deja de considerarse compra pendiente.
 
 ```mermaid
 sequenceDiagram
- actor T as Mercado Aurora
- participant S as Mesa Semanal
- actor U as Usuario
- T->>S: Ingresa título, presentación, localidad y precio final
- T->>S: Selecciona ingredientes, gramos y precio de cada cantidad
- T->>S: Sube una imagen o pega su URL HTTPS
- S-->>T: Muestra tres composiciones con el título
- T->>S: Elige diseño y publica
- S->>S: Comprueba el rol, guarda el producto y registra el movimiento
- U->>S: Abre Comunidad
- S-->>U: Muestra el diseño elegido, la composición, el precio y la tienda
+ actor U as Comprador
+ participant M as Mesa Semanal
+ actor T as Tienda
+ actor A as Administración
+ U->>M: Añade productos y registra medio y referencia de prueba
+ M->>T: Genera un pedido por tienda, con cantidades y precios
+ T->>M: Acepta el pedido
+ A->>M: Confirma la referencia
+ T->>M: Marca enviado e indica cuándo llegará
+ U->>M: Confirma recepción o deja una queja
 ```
 
-| Cuenta | Ejemplo de uso | Restricción |
-|---|---|---|
-| Usuario | Armo mi semana, marco lo que desayuné y reviso cuánto me cuesta comprar los ingredientes. También puedo compartir una receta. | Para publicar necesito iniciar sesión. Mi ingrediente privado queda disponible en mis recetas. El lector puede ver la composición del desayuno publicado. |
-| Tienda | Publico mi mezcla de avena y cacao. Pongo el precio correspondiente a los gramos de cada ingrediente y decido el precio final del envase. Puedo añadir desayunos del catálogo a mi recetario y armar planes semanales. | Los combos usan productos propios. Los planes usan platos propios publicados. Retirar un plato incluido en un plan requiere resolver esa referencia. |
-| Administrador | Busco una cuenta, reviso sus publicaciones, corrijo el título o la preparación de un plato de tienda y consulto el historial. | El servidor valida el rol. Un plato usado en un plan puede ocultarse. El estado de suscripción demo es independiente de la suspensión de la cuenta. |
+## Suscripción y pagos
 
-## Qué significa activar una demo
+Paquetes de demostración de 1, 3 y 12 meses. La confirmación manual activa el acceso durante el plazo elegido. El carrito admite Yape, Plin y transferencia como medios declarados. No hay débito, apertura verificada de una billetera ni conciliación bancaria automática. La estimación de entrega la introduce el comercio. Los pedidos son una demostración local, sin operador logístico.
 
-Una cuenta empieza sin demo. Administración puede activarla, congelarla y reactivarla. El historial guarda quién hizo el cambio y cuándo. Esta versión gestiona estados de demostración, sin pasarela de cobro. El historial conserva los últimos 300 movimientos registrados. Las publicaciones anteriores a la incorporación de estos eventos mantienen sus datos originales.
+## Qué tomar de Yapa
 
-## Cómo probarlo
+En la copia revisada, `src/components/FaqChatbot.tsx` llama a `searchFaq` de `src/utils/faqSearch.ts`. El buscador usa temas, palabras normalizadas, sinónimos y preguntas precargadas. La respuesta seleccionada se añade al historial. La función separada de canasta con IA tiene un cliente de modelos en `api/src/yapa_sdd/ia.py`.
 
-1. En **Mi tienda → Mis productos**, añade un ingrediente con **＋**, indica sus gramos y su precio, escoge una foto y compara los tres diseños.
-2. Publica y abre **Comunidad → Productos publicados por tiendas**. Revisa el nombre público de la tienda, la imagen y el precio por presentación.
-3. En **Catálogo de platos**, añade una receta. Abre **Mis desayunos** para verla con una imagen de referencia.
-4. Con una cuenta administradora, abre **Platos de tiendas** y guarda un cambio en la preparación. Revisa **Historial de movimientos**. Activa o congela una demo desde **Suscripciones demo**.
+En Mesa Semanal empezaría con preguntas sobre porciones, precios referenciales, reservas y recepción. Después añadiría búsqueda por tema y sinónimos, y evaluaría qué consultas quedan sin respuesta. Una fase posterior podría consultar un modelo desde el servidor con fragmentos de esas reglas, sin compartir credenciales ni datos de otros pedidos.

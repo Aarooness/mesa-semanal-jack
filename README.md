@@ -31,3 +31,7 @@ Los cambios de experiencia, las reglas por rol y las propuestas de evolución es
 [Casos de uso, diagramas, restricciones y recorrido de prueba](CASOS-DE-USO.md).
 
 Para reproducir los dos productos de Mercado Aurora en una instalación nueva, inicia el servidor y ejecuta `node demo-aurora.mjs` en otra terminal. Crea una tienda de demostración con contraseña aleatoria local y publica los ejemplos en Comunidad.
+
+## Mercado local de demostración
+
+Con el servidor activo, `node demo-mercado.mjs` carga dos catálogos de ingredientes y uno de desayunos. En una instalación nueva, Administración debe activar la demo de `suscriptor_mesa` si el script no encuentra una cuenta administradora en el archivo local de cuentas demo. Las credenciales generadas se guardan en `.cuentas-demo.txt`, excluido de Git. Los pagos se confirman manualmente en Pedidos.

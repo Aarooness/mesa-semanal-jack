@@ -12,7 +12,7 @@ El autor guarda un ingrediente con información por 100 g, incluyendo al menos u
 
 ## Cotizar y pagar
 
-La cesta admite unidades de huevo de 50 g comestibles y gramos para el resto. La opción combinada compara paquetes suficientes por tienda, descontando la despensa. La fuente puntual de la avena de Metro es su catálogo público para Quaker 500 g, consultado el 23/11/2026; los demás precios son de demostración. En la realidad pueden cambiar por distrito, presentación o membresía. «Ir a pagar» abre la cotización. No transfiere dinero. El 15 % es un ejemplo aritmético de la pantalla premium, no un resultado de clientes.
+La cesta admite unidades de huevo de 50 g comestibles y gramos para el resto. La opción combinada compara paquetes suficientes por tienda, descontando la despensa. La fuente puntual de la avena de Metro es su catálogo público para Quaker 500 g, consultado el 23/11/2026; los demás precios son de demostración. En la realidad pueden cambiar por distrito, presentación o membresía. «Ir a pagar» desde Descubrir abre la cotización. No transfiere dinero. El 15 % es un ejemplo aritmético de la pantalla premium, no un resultado de clientes.
 
 ## Decisiones por tomar antes de operar con comercios reales
 
@@ -22,3 +22,7 @@ La cesta admite unidades de huevo de 50 g comestibles y gramos para el resto. La
 4. **Combos y stock.** Definir fechas, unidades disponibles, compatibilidad entre descuentos y si el combo cambia cuando el vendedor modifica un producto.
 5. **Privacidad.** Decidir por separado si interesa sincronizar perfil físico e historial entre dispositivos; moderar recetas no requiere acceso a esas medidas.
 La foto de referencia de la lúcuma y su composición aproximada proceden de la [ficha de lúcuma de Plaza Vea](https://www.plazavea.com.pe/lucuma-madura-bells-x-kg-1/p).
+
+## Tiendas locales y reservas
+
+La canasta local y los pagos de demostración siguen las [reglas de pedidos y suscripción](CASOS-DE-USO.md). Ingredientes y desayunos se distinguen por la especialidad de la tienda. Los gramos de ofertas locales pendientes reducen la cantidad por cotizar en cadenas. En Publicar producto, el peso de cada componente avanza de 5 g en 5 g y el vendedor fija el precio final del envase.
