@@ -2,7 +2,7 @@
 
 Mesa Jack organiza desayunos semanales y calcula qué ingredientes faltan para prepararlos. Permite comparar el desembolso por envases completos, publicar recetas en Comunidad y hacer pedidos a tiendas locales. Los pagos del prototipo se validan manualmente.
 
-[Informe del proyecto](docs/Informe-Mesa-Jack.docx) · [Presentación PowerPoint](docs/Mesa-Jack-Premium.pptx) · [Guion de 20 minutos](docs/Guion-Mesa-Jack.md) · [Presentación para abrir localmente en el navegador](docs/Mesa-Jack-revision-final.html)
+[Informe del proyecto en PDF](docs/Informe-Mesa-Jack.pdf) · [Resumen en Word](docs/Informe-Mesa-Jack.docx) · [Presentación PowerPoint](docs/Mesa-Jack-Premium.pptx) · [Guion de 20 minutos](docs/Guion-Mesa-Jack.md) · [Presentación para abrir localmente en el navegador](docs/Mesa-Jack-revision-final.html)
 
 ## Ejecutar en local
 
