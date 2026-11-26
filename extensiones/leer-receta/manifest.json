@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Mesa Jack · Leer preparación",
+  "version": "1.0.0",
+  "description": "Escucha los pasos de la receta abierta.",
+  "content_scripts": [
+    {
+      "matches": [
+        "http://127.0.0.1/*",
+        "http://localhost/*",
+        "*://mesa.aarjack.ink/*",
+        "http://18.117.115.22/*"
+      ],
+      "js": [
+        "extension.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

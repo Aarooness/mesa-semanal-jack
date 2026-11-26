@@ -1,4 +1,4 @@
-# Mesa Semanal · quién hace qué
+# Mesa Jack · quién hace qué
 
 La compra empieza con una pregunta concreta: «Ya escogí mis desayunos, ¿qué ingredientes me faltan y dónde me conviene comprarlos?». Hay cuatro experiencias y tres roles de cuenta. Suscriptor es un usuario con acceso a la comparación conjunta de ofertas locales mientras su suscripción esté vigente.
 
@@ -33,7 +33,7 @@ Si necesito 500 g de fresa y añado una bandeja local de 100 g, quedan 400 g por
 ```mermaid
 sequenceDiagram
  actor U as Comprador
- participant M as Mesa Semanal
+ participant M as Mesa Jack
  actor T as Tienda
  actor A as Administración
  U->>M: Añade productos y selecciona medio de pago
@@ -52,7 +52,7 @@ Paquetes de demostración de 1, 3 y 12 meses. La confirmación manual activa el 
 
 En la copia revisada, `src/components/FaqChatbot.tsx` llama a `searchFaq` de `src/utils/faqSearch.ts`. El buscador usa temas, palabras normalizadas, sinónimos y preguntas precargadas. La respuesta seleccionada se añade al historial. La función separada de canasta con IA tiene un cliente de modelos en `api/src/yapa_sdd/ia.py`.
 
-En Mesa Semanal empezaría con preguntas sobre porciones, precios referenciales, reservas y recepción. Después añadiría búsqueda por tema y sinónimos, y evaluaría qué consultas quedan sin respuesta. Una fase posterior podría consultar un modelo desde el servidor con fragmentos de esas reglas, sin compartir credenciales ni datos de otros pedidos.
+En Mesa Jack empezaría con preguntas sobre porciones, precios referenciales, reservas y recepción. Después añadiría búsqueda por tema y sinónimos, y evaluaría qué consultas quedan sin respuesta. Una fase posterior podría consultar un modelo desde el servidor con fragmentos de esas reglas, sin compartir credenciales ni datos de otros pedidos.
 
 ## Casos de uso de la entrega
 

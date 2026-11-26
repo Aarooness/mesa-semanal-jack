@@ -60,13 +60,25 @@ export function createPlatform(directory,{apiKey=process.env.TAVILY_API_KEY,fetc
   const p=url.pathname,method=req.method;if(!p.startsWith('/api/'))return false;
   if(p==='/api/store-logo'&&method==='POST'){const u=requireUser(req,'store'),input=await body(req),logo=productPhoto(input.photo);if(!logo)fail('Elige un logo.');u.logo=logo;audit(u,'Actualizó logo',u.storeName);persist();send(200,{ok:true});return true}
   if(p==='/api/store-directory'&&method==='GET'){send(200,db.users.filter(a=>a.role==='store'&&a.status==='active').map(a=>({name:a.storeName,logo:a.logo||(fs.existsSync(path.join(directory,"public","logos",a.username+".svg"))?"/logos/"+a.username+".svg":null),username:a.username,specialty:a.specialty||'ambos',ingredients:db.products.filter(i=>i.authorId===a.id&&i.kind==='ingrediente').length})));return true}
+  if(p==='/api/store-visit'&&method==='POST'){
+   const user=requireUser(req);
+   const {username}=await body(req);
+   const shop=db.users.find(a=>a.username===username&&a.role==='store'&&a.status==='active');
+   if(user.role==='user'&&shop&&!(user.visitedStores||[]).includes(shop.id)){
+    (user.visitedStores??=[]).push(shop.id);persist();
+   }
+   send(200,{ok:true});return true;
+  }
   if(p==='/api/market'){
    const u=requireUser(req),cart=db.carts[u.id]??=[],ownOrders=db.orders.filter(o=>o.buyer===u.id);
    const visibleOrders=db.orders.filter(o=>u.role==='admin'||o.buyer===u.id||o.store===u.id);
    if(method==='GET'){const offers=db.products.filter(pr=>db.users.some(a=>a.id===pr.authorId&&a.status==='active')&&(pr.kind!=='ingrediente'||premium(u))).map(pr=>({...pr,storeName:author(pr.authorId).storeName}));
-    const cartView=cart.map(item=>({...item,photo:db.products.find(p=>p.id===item.id)?.photo||item.photo||''}));send(200,{offers,cart:cartView,orders:visibleOrders,sub:premium(u),reserved:[...cart,...ownOrders.filter(o=>!['recibido','reclamo','rechazado'].includes(o.state)).flatMap(o=>o.items||[])]});return true}
+    const cartView=cart.map(item=>({...item,photo:db.products.find(p=>p.id===item.id)?.photo||item.photo||''}));const familiar=new Set([...(u.visitedStores||[]),...ownOrders.filter(o=>['pagado','enviado','recibido','reclamo'].includes(o.state)).map(o=>o.store)]);
+    const alerts=u.role==='user'&&premium(u)?offers.filter(o=>o.kind==='ingrediente'&&o.reduction&&familiar.has(o.authorId)).map(o=>({name:o.name,shop:o.storeName,username:author(o.authorId).username,price:o.price,unit:o.unit,previous:o.reduction.previous,at:o.reduction.at})).sort((a,b)=>b.at-a.at):[];
+    send(200,{alerts,offers,cart:cartView,orders:visibleOrders,sub:premium(u),reserved:[...cart,...ownOrders.filter(o=>!['recibido','reclamo','rechazado'].includes(o.state)).flatMap(o=>o.items||[])]});return true}
    const x=await body(req);
-   if(x.action==='add'){
+   if(x.action==='add'||x.action==='addPremium'){
+    if(x.action==='addPremium'&&!premium(u))fail('Esta comparación requiere una suscripción activa.',403);
     if(u.role!=='user')fail('Usa una cuenta personal.',403);
     const pr=db.products.find(pr=>pr.id===x.id&&db.users.some(a=>a.id===pr.authorId&&a.status==='active'));if(!pr)fail('Producto no disponible.',404);
     const qty=x.qty===undefined?1:x.qty;
@@ -112,6 +124,32 @@ export function createPlatform(directory,{apiKey=process.env.TAVILY_API_KEY,fetc
   }
   if(p==='/api/combos'&&method==='POST'){const u=requireUser(req,'store'),x=await body(req);if(!Array.isArray(x.items)||x.items.length<2||new Set(x.items.map(i=>i.id)).size!==x.items.length)fail('Elige al menos dos productos diferentes.');const items=x.items.map(i=>{const pr=db.products.find(pr=>pr.id===i.id&&pr.authorId===u.id);if(!pr)fail('Producto ajeno o inexistente');return {name:pr.name,id:i.id,price:pr.price,discount:number(i.discount,0,100)}});const combo={id:randomUUID(),authorId:u.id,name:text(x.name,100),items,total:+items.reduce((a,i)=>a+i.price*(1-i.discount/100),0).toFixed(2)};db.combos.push(combo);audit(u,'Publicó oferta',combo.name);persist();send(201,combo);return true}
   if(p==='/api/combos'&&method==='GET'){send(200,db.combos.filter(c=>db.users.some(u=>u.id===c.authorId&&u.status==='active')).map(c=>({...c,author:author(c.authorId)})));return true}
+  if (method==='POST' && ['/api/recovery','/api/recovery/reset','/api/admin/recovery'].includes(p)) {
+   const moderator=p==='/api/admin/recovery'?requireUser(req,'admin'):null;
+   if(!moderator) limit('recovery:'+req.socket.remoteAddress,12);
+   const input=await body(req);
+   db.recoveries=(db.recoveries||[]).filter(r=>r.expires>Date.now());
+   const target=db.users.find(u=>u.username===String(input.username||'').trim().toLowerCase() && ['user','store'].includes(u.role) && u.status==='active');
+   const request=target&&db.recoveries.find(r=>r.userId===target.id);
+   if(p==='/api/recovery'){
+    if(target&&!request){db.recoveries.push({userId:target.id,expires:Date.now()+86400000});persist()}
+    send(200,{ok:true});return true;
+   }
+   if(moderator){
+    if(!request||request.hash)fail('Solicitud pendiente inexistente.',404);
+    if(!['approve','deny'].includes(input.decision))fail('Decisión inválida.');
+    let code;
+    if(input.decision==='approve'){code=randomBytes(12).toString('hex');request.hash=digest(code);request.expires=Date.now()+1800000}
+    else db.recoveries=db.recoveries.filter(r=>r!==request);
+    audit(moderator,input.decision==='approve'?'Autorizó recuperación':'Denegó recuperación',target.username);
+    persist();res.setHeader('Cache-Control','no-store');send(200,{code});return true;
+   }
+   if(!request?.hash||!timingSafeEqual(Buffer.from(request.hash,'hex'),Buffer.from(digest(String(input.code||'').trim()),'hex')))fail('Código inválido o vencido.');
+   if(typeof input.password!=='string'||input.password.length<10||input.password.length>128)fail('Usa entre 10 y 128 caracteres.');
+   target.salt=randomBytes(16).toString('hex');target.hash=scryptSync(input.password,target.salt,64).toString('hex');
+   db.sessions=db.sessions.filter(s=>s.userId!==target.id);db.recoveries=db.recoveries.filter(r=>r!==request);
+   audit(target,'Restableció contraseña',target.username);persist();send(200,{ok:true});return true;
+  }
   if(p==='/api/account'&&method==='GET'){send(200,{user:session(req)?publicUser(session(req)):null});return true}
   if(['/api/register','/api/login'].includes(p)&&method==='POST'){
    limit('auth:'+req.socket.remoteAddress,15);const input=await body(req);let u;
@@ -153,6 +191,10 @@ if(data.productIds.some(id=>!db.products.some(pr=>pr.id===id&&pr.authorId===u.id
 if(!input.photo)fail('Añade una foto al producto.');if(kind==='ingrediente'&&(!Object.hasOwn(byId,input.food)||!/^\d+(\.\d+)? (g|kg)$/.test(input.unit)||parseFloat(input.unit)<=0))fail('Elige un ingrediente y su peso.');const components=productComponents(input.components??[]);const composition=components.length?nutrients(components.map(i=>[i.id,i.grams])):null;
 const product={preparation:typeof input.preparation==='string'?input.preparation.slice(0,2000):'',composition,kind,food:kind==='ingrediente'?input.food:null,id:old?.id||randomUUID(),authorId:u.id,name:text(input.name,100),unit:text(input.unit,60),price:number(input.price,0,100000),description:text(input.description,600),location:input.location?text(input.location,100):'',photo:productPhoto(input.photo),design:number(input.design??0,0,2),components};
    if(old){
+    if(kind==='ingrediente'){
+     if(old.food!==product.food||old.unit!==product.unit||product.price>old.price)delete old.reduction;
+     else if(product.price<old.price)old.reduction={previous:old.price,at:Date.now()};
+    }
     Object.assign(old,product);
     for(const cart of Object.values(db.carts)){
      const item=cart.find(i=>i.id===old.id);
@@ -190,7 +232,7 @@ const product={preparation:typeof input.preparation==='string'?input.preparation
    }
    audit(u,denied?'Denegó publicación':'Dejó observaciones',title);persist();send(200,{ok:true});return true;
   }
-  if(p==='/api/admin'&&method==='GET'){requireUser(req,'admin');send(200,{reviews:db.reviews,combos:db.combos.map(c=>({...c,author:author(c.authorId)})),users:db.users.map(publicUser),posts:db.posts.map(p=>({...p,author:author(p.authorId)})),products:db.products.map(p=>({...p,author:author(p.authorId)})),audit:db.audit,searchConfigured:!!apiKey});return true}
+  if(p==='/api/admin'&&method==='GET'){requireUser(req,'admin');send(200,{recoveries:(db.recoveries||[]).filter(r=>!r.hash&&r.expires>Date.now()).map(r=>db.users.find(u=>u.id===r.userId)).filter(u=>u?.status==="active").map(publicUser),reviews:db.reviews,combos:db.combos.map(c=>({...c,author:author(c.authorId)})),users:db.users.map(publicUser),posts:db.posts.map(p=>({...p,author:author(p.authorId)})),products:db.products.map(p=>({...p,author:author(p.authorId)})),audit:db.audit,searchConfigured:!!apiKey});return true}
   if(p==='/api/admin/subscription'&&method==='PATCH'){
    const u=requireUser(req,'admin'),x=await body(req),account=db.users.find(a=>a.id===x.id);
    if(!account||account.role==='admin'||!['demo activa','congelada'].includes(x.state))fail('Cuenta o estado inválido.');

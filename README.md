@@ -1,43 +1,41 @@
-# Mesa Semanal
+# Mesa Jack
 
-Prototipo local de planificación de desayunos. Requiere Node.js 22 o posterior. Desde esta carpeta ejecuta `node server.mjs` y abre http://127.0.0.1:8734. El servidor escucha solo en la interfaz local. No se necesitan paquetes npm.
+Mesa Jack organiza desayunos semanales y calcula qué ingredientes faltan para prepararlos. Permite comparar el desembolso por envases completos, publicar recetas en Comunidad y hacer pedidos a tiendas locales. Los pagos del prototipo se validan manualmente.
 
-Tres plantillas predefinidas permiten revisar la semana antes de aplicarla. También puedes crear un menú manual o usar una plantilla de la comunidad local.
+[Informe del proyecto](docs/Informe-Mesa-Jack.docx) · [Presentación PowerPoint](docs/Mesa-Jack-Premium.pptx) · [Guion de 20 minutos](docs/Guion-Mesa-Jack.md) · [Presentación para abrir localmente en el navegador](docs/Mesa-Jack-revision-final.html)
 
-## Alcance de los datos
+## Ejecutar en local
 
-- 27 ingredientes y cuatro comercios con cotizaciones de demostración, salvo la observación identificada de avena Quaker en Metro. Fotos de ingredientes de TheMealDB, almacenadas localmente en `public/fotos`. La quinua se pesa en seco. El peso de fruta corresponde a la porción comestible estimada.
-- Los planes y compras personales se guardan en el almacenamiento del navegador, en el mismo origen. Las plantillas compartidas se guardan en `comunidad.json` en esta instalación. El planificador permite explorar como visitante. Al entrar a una cuenta, el navegador usa un espacio personal separado.
-- Cada compra confirmada conserva una copia independiente del plan y su inventario. La despensa se declara en cada planificación; registrar un desayuno descuenta existencias del plan confirmado correspondiente.
-- Un mes de demostración son 30 días desde un lunes. Los siete días forman la plantilla; el día 29 y el 30 corresponden a lunes y martes.
-- El costo de la porción usa gramos planificados y precio por gramo. En caja se cobran paquetes completos después de descontar la despensa. Los totales parciales identifican faltantes. Los resultados comparan el consumo registrado con la referencia de kcal indicada por el usuario.
+Con Docker Desktop activo y Docker Compose 2.24.4 o posterior, ejecuta estos comandos desde PowerShell. El ejemplo parte de una instalación nueva.
 
-El encargo para rediseñar únicamente las vistas está en `PROMPT-VISUAL.md`.
+~~~powershell
+git clone https://github.com/Aarooness/mesa-semanal-jack.git
+cd mesa-semanal-jack
+Copy-Item .env.example .env
+docker compose -f compose.local.yaml up -d --build --wait
+~~~
 
-## Perfil, plan y recetas
+Abre [Mesa Jack en tu equipo](http://127.0.0.1:8734/#inicio). Para actualizar una instalación existente, conserva tu archivo `.env`, descarga los cambios con `git pull` y repite el comando de Compose. Los datos de la instalación Docker se guardan en `data/`. Para detenerla usa `docker compose -f compose.local.yaml stop`.
 
-Desde la portada pública se accede al planificador y al perfil editable de seis pasos. La semana utiliza treinta preparaciones de elaboración propia, alergias declaradas, categorías preferidas y proximidad a las kcal configuradas. Los datos físicos y el objetivo de peso son descriptivos. Las metas numéricas iniciales son ilustrativas. Los ingredientes y la compra escalan por hogar; la nutrición y el consumo registrado son individuales. Desde una ficha se puede comparar la receta, la semana o el periodo, elegir la distribución de menor desembolso por producto entre las dos tiendas simuladas y abrir búsquedas externas en Metro/Wong. La comparación excluye transporte.
+También puedes iniciar la aplicación con Node.js 22 o posterior mediante `node server.mjs`. Este modo guarda sus archivos de datos en la carpeta del proyecto salvo que configures `DATA_DIR`. En una instalación nueva con Node, `node create-admin.mjs` crea el administrador inicial y escribe sus credenciales en el archivo privado `.admin-inicial.txt`. Con el servidor activo, los scripts `demo-aurora.mjs` y `demo-mercado.mjs` cargan ejemplos de tiendas. Los datos personales de la instalación original se excluyen del repositorio.
 
-## Cuentas, comunidad y tiendas
+## Qué se puede probar
 
-En /#cuenta puedes registrar un usuario único personal o de tienda. /#comunidad permite leer recetas y planes sin sesión. La tienda publica sus productos, recetas y planes de siete días en /#tienda. /#administracion permite consultar usuarios, gestionar roles, suspender o reactivar cuentas y moderar publicaciones. Las credenciales iniciales de esta instalación están en el archivo privado .admin-inicial.txt. Los datos compartidos se conservan en plataforma.json.
+| Apartado | Recorrido |
+| --- | --- |
+| Mi menú | Partir de una semana sugerida, reemplazar o mover desayunos, ajustar porciones y consultar la meta nutricional. |
+| Comunidad | Publicar una preparación con foto, ingredientes y pasos. Abrir una ficha y consultar el perfil de su autor. |
+| Compras | Reunir cantidades, descontar despensa y reservas, y comparar una cadena o la opción combinada. Los ingredientes sin precio aparecen atenuados. |
+| Lista Premium | Revisar en la misma pantalla ofertas para los ingredientes pendientes. Priorizar las que mejoran el precio por gramo y el importe por envases completos. El resto conserva la lista base. |
+| Tiendas y pedidos | Una cuenta gratuita puede comprar directamente en cada tienda. El comercio gestiona su catálogo y la entrega. Administración valida o rechaza el pago de demostración. |
+| Extensiones | Desde `chrome://extensions`, activar el modo desarrollador y cargar por separado las carpetas `extensiones/leer-receta` e `extensiones/imprimir-receta`. Abrir una receta para escuchar los pasos o imprimir la ficha. |
 
-La búsqueda en /#buscar requiere sesión. El servidor lee TAVILY_API_KEY de .env en la carpeta del proyecto. El filtro de comercios independientes excluye los dominios de Wong, Metro y Plaza Vea. Las fuentes externas no modifican automáticamente los precios del planificador.
+## Cómo se organiza el código
 
-Los cambios de experiencia, las reglas por rol y las propuestas de evolución están en VISTAS-Y-REGLAS.md y PRODUCTO-Y-ARQUITECTURA.md. Las tres cuentas de prueba se entregan en .cuentas-demo.txt, fuera del directorio público.
+- `public/` contiene las vistas y los recursos del navegador. El plan personal se guarda por cuenta en el almacenamiento local de ese navegador.
+- `server.mjs` sirve la interfaz y recibe las solicitudes HTTP. `platform-api.mjs` gestiona cuentas, catálogos, suscripciones, moderación y pedidos. El servidor guarda la información compartida en archivos JSON.
+- `public/premium.js` calcula las ofertas locales para la lista seleccionada. Las cotizaciones usan precios de catálogo y excluyen el transporte.
+- `shopping-search.mjs` consulta fuentes externas cuando se configura `TAVILY_API_KEY` en `.env`. La comparación de los catálogos funciona independientemente de esa búsqueda.
+- `Dockerfile`, `compose.yaml` y `compose.local.yaml` definen la imagen, el volumen persistente y la configuración local. El despliegue de demostración utiliza AWS EC2.
 
-## Roles y entrega
-
-[Casos de uso, diagramas, restricciones y recorrido de prueba](CASOS-DE-USO.md).
-
-Para reproducir los dos productos de Mercado Aurora en una instalación nueva, inicia el servidor y ejecuta `node demo-aurora.mjs` en otra terminal. Crea una tienda de demostración con contraseña aleatoria local y publica los ejemplos en Comunidad.
-
-## Mercado local de demostración
-
-Con el servidor activo, `node demo-mercado.mjs` carga dos catálogos de ingredientes y uno de desayunos. En una instalación nueva, Administración debe activar la demo de `suscriptor_mesa` si el script no encuentra una cuenta administradora en el archivo local de cuentas demo. Las credenciales generadas se guardan en `.cuentas-demo.txt`, excluido de Git. Los pagos se confirman manualmente en Pedidos.
-
-## Entrega
-
-[Presentación PowerPoint](Mesa-Semanal.pptx) · [Casos de uso](CASOS-DE-USO.md) · [Arquitectura](PRODUCTO-Y-ARQUITECTURA.md).
-
-Compose publica 8734 y monta ./data en /data. En Ubuntu prepara la carpeta con escritura para el UID 1000 y un .env privado. Ejecuta docker compose pull y docker compose up -d --wait. La instalación nueva comienza vacía. Tavily requiere TAVILY_API_KEY.
+Para ejecutar las pruebas de la API desde la raíz del proyecto, usa `node --test platform.test.mjs`. Para revisar los permisos y decisiones de diseño, consulta los [casos de uso](CASOS-DE-USO.md), las [vistas y reglas](VISTAS-Y-REGLAS.md) y la [descripción de arquitectura](PRODUCTO-Y-ARQUITECTURA.md).

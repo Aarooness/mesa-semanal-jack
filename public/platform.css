@@ -24,3 +24,24 @@
 .quote-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 4px}.quote-summary h3{margin:0}
 
 .purchase-row.unavailable-row{background:#181d1e;border-left:3px solid #677674}.purchase-row.unavailable-row img{filter:grayscale(1);opacity:.45}.purchase-row.unavailable-row strong,.purchase-row.unavailable-row figure{opacity:.65}.purchase-row.unavailable-row small{color:#c4cecc}.portion-card details{margin-block:12px}.portion-card input[type=number]{max-width:8rem}#ingredient-cart>label{display:grid;grid-template-columns:minmax(0,1fr) 5em auto;gap:8px;align-items:center}#ingredient-cart input{width:100%;min-width:0}
+
+#ingredient-cart>label{width:100%;box-sizing:border-box;grid-template-columns:minmax(0,1fr) minmax(46px,4.5em) auto;margin-block:6px}
+#ingredient-cart [data-action="payCart"]{display:block;margin-top:22px}
+@media(max-width:720px){
+ .slot.purchase-row{display:grid;grid-template-columns:26px minmax(0,1fr) auto minmax(32px,12%);align-items:center;gap:5px}
+ .slot.purchase-row>img{width:26px;height:30px}
+ .slot.purchase-row>div{min-width:0}
+ .purchase-row strong{font-size:.89rem}
+ .purchase-row small,.purchase-row figcaption{font-size:.73rem;line-height:1.18}
+ .purchase-row .quantity-stepper{margin:0;gap:2px}
+ .purchase-row .quantity-stepper button{min-width:24px;padding:3px;height:32px}
+ .purchase-row .quantity-stepper input{box-sizing:border-box;width:3.5em;padding:4px 1px;font-size:.82rem}
+ .purchase-row .quantity-stepper label{gap:1px;font-size:.73rem}
+ .slot.purchase-row figure{margin:0;min-width:0;text-align:center}
+ .slot.purchase-row figure img{width:28px;height:28px}
+ .slot.purchase-row figcaption{overflow-wrap:anywhere}
+ #ingredient-cart>label{gap:5px;font-size:.88rem}
+ #ingredient-cart>label button{padding-inline:7px}
+}
+
+.brand img,.jack-home img{vertical-align:middle}.jack-deal{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0}.jack-deal small{display:block}.jack-deal del{color:#a5aaa8}.jack-alerts{border-left:3px solid #76deca}

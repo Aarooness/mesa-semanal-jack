@@ -1,0 +1,10 @@
+name: mesa-jack-local
+services:
+  app:
+    extends:
+      file: compose.yaml
+      service: app
+    image: mesa-jack:local
+    build: .
+    ports: !override
+      - "127.0.0.1:8734:8734"

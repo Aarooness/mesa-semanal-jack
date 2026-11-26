@@ -1,3 +1,4 @@
+import {reducedOffers} from './premium.js';
 import {discovery,checkout,slots,grams,purchaseStep} from './revision.js';
 import {icon} from './icons.js';
 import {currentUser,renderPlatform,basketPanel,marketState} from './platform.js';
@@ -113,6 +114,8 @@ main.addEventListener('change',e=>{
   if(el.dataset.mark){s.done[el.dataset.mark]=el.checked;save();render();return}if(el.dataset.cartgrams){if(el.value&&el.checkValidity())s.cart[el.dataset.cartgrams]=Number(el.value)*(el.dataset.cartgrams==='huevo'?50:1);save();render();return}if(!field||field==='slider')return;
   if(el.type==='number'&&!el.checkValidity()){el.reportValidity();return}
   switch(field){
+    case 'premiumPick':{const pref=premiumSettings();pref.picks[id]=el.checked;pref.open=true;if(el.checked)pref.enabled=true;break}
+    case 'premiumEnabled':premiumSettings().enabled=el.checked;break;
     case 'quoteGrams':setQuoteGrams(id,el.valueAsNumber);break;
     case 'quoteList':s.quoteSelection=el.checked?{list:el.value,key:quoteKey()}:null;break;
     case 'focusDay':focusDay=Number(el.value);resetBuy();break;
@@ -254,17 +257,21 @@ queueMicrotask(()=>{page=routes.includes(location.hash.slice(1))?routes.indexOf(
 function ready(){return s.days.every(d=>d.length)}
 function empty(){return '<div class="panel">Elige al menos un alimento para comenzar.'+btn('Abrir catálogo','catalog','primary')+'</div>'}
 function period(){return '<label>Periodo <select data-field="period">'+opts([[7,'Semanal · 7 días'],[30,'Mensual · 30 días']],s.count)+'</select></label>'}
+function premiumSettings(){s.premiumLists??={};return s.premiumLists[quoteKey()]??={enabled:false,picks:{}}}
 function render(){
  if(page===6&&(!currentUser||currentUser.role==='store')&&location.hash==='#perfil'){location.replace(currentUser?'#tienda':'#cuenta');return}if(page===3){s.checkoutContext={day:focusDay,slot:activeSlot,scope};save()}
  const selected=s.quoteSelection?.key===quoteKey()?s.quoteSelection.list:'mixed';
  const req=selected===null?{}:required();
  const selectedRows=selected==='mixed'?mixedQuote(req,s.pantry):selected===null?[]:quote(req,s.pantry,Number(selected)).map(row=>({...row,shop:Number(selected)}));
- const source=selected!==null?{scope:quoteKey(),label:selected==='mixed'?'Opción combinada':stores[Number(selected)],items:selectedRows.filter(row=>row.missing>0).map(({id,shop,missing})=>({id,shop,grams:missing}))}:null;
+ const prem=premiumSettings();
+ const deals=marketState.sub?reducedOffers(selectedRows,marketState.offers):new Map();
+ const priority=new Set([...deals.keys()].filter(id=>prem.enabled&&prem.picks[id]));
+ const source=selected!==null?{scope:quoteKey(),label:selected==='mixed'?'Opción combinada':stores[Number(selected)],items:selectedRows.filter(row=>row.missing>0&&!priority.has(row.id)).map(({id,shop,missing})=>({id,shop,grams:missing}))}:null;
  if(renderPlatform(source))return;
  const names=['search','list','stack','basket','track','plan','profile'];
  const navButton=i=>btn(icon(names[i])+'<span>'+labels[i]+'</span>','nav','nav-item','data-page="'+i+'" '+(i===page?'aria-current="page"':''));
  nav.innerHTML=[5,0,3,6].map(navButton).join('')+'<details class="more-nav"><summary>'+icon('more')+'<span>Más</span></summary><div>'+[1,2,4].map(navButton).join('')+'</div></details>';
- document.body.dataset.view=page===5&&detail?'receta':routes[page];main.innerHTML=[()=>discovery(s,discTab),selection,menu,()=>basketPanel(currentUser)+checkout(s,required(),scope,focusDay,selected,source,marketState.sub),tracking,()=>detail&&s.days[focusDay].length?detailView(activeSlot?{...s,days:s.days.map((ids,d)=>d===focusDay?(s.extra[d][activeSlot-1]||ids):ids),scales:s.scales.map((v,d)=>d===focusDay?(s.extraScale[d][activeSlot-1]||1):v)}:s,focusDay):planView(s,focusDay,dayOnly),()=>profileForm(profileDraft,profileStep)][page]()}
+ document.body.dataset.view=page===5&&detail?'receta':routes[page];main.innerHTML=[()=>discovery(s,discTab),selection,menu,()=>basketPanel(currentUser)+checkout(s,required(),scope,focusDay,selected,source,marketState.sub,{prem,deals,priority}),tracking,()=>detail&&s.days[focusDay].length?detailView(activeSlot?{...s,days:s.days.map((ids,d)=>d===focusDay?(s.extra[d][activeSlot-1]||ids):ids),scales:s.scales.map((v,d)=>d===focusDay?(s.extraScale[d][activeSlot-1]||1):v)}:s,focusDay):planView(s,focusDay,dayOnly),()=>profileForm(profileDraft,profileStep)][page]()}
 function products(){return foods.filter(f=>allowed(f.id,s.profile)).filter(f=>(category==='Todos'||f.group===category)&&f.name.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es'))).map(f=>'<article class="card" draggable="true" data-food="'+f.id+'"><img src="/fotos/'+f.id+'.png" alt="'+f.name+'"><small>'+f.group+'</small><h3>'+f.name+'</h3><div class="tag">'+f.tag+'</div><p>'+f.desc+'</p>'+btn(s.portion[f.id]?'En mi selección':'Añadir a mi selección','add','',dataId(f.id))+'</article>').join('')||'<p>Sin coincidencias.</p>'}
 function catalog(){return '<h1>¿Qué te gustaría desayunar?</h1><p>Explora ingredientes y arma tu selección para la semana.</p><div class="filters"><label>Buscar <input id="search" value="'+esc(search)+'" placeholder="Avena, quinua…"></label><label>Grupo <select data-field="category">'+opts(['Todos',...new Set(foods.map(f=>f.group))].map(v=>[v,v]),category)+'</select></label></div><div class="drop" id="drop">Suelta aquí un ingrediente · '+ids().length+' seleccionados '+btn('Ajustar cantidades','selection','primary')+'</div><div class="grid" id="products">'+products()+'</div>'}
 function add(id){if(!byId[id]||!allowed(id,s.profile))return;if(!s.portion[id]){s.portion[id]=byId[id].portion;s.buy={};save()}render();notice(byId[id].name+' en tu selección')}

@@ -124,6 +124,20 @@ test('Cuentas, permisos, recetas, tiendas, moderación y persistencia',async()=>
   assert.ok(!(await call('admin',null,admin.cookie)).data.posts.some(p=>p.id===post.data.id));
   await call('admin/users',{id:shop.data.user.id,status:'suspended'},admin.cookie,'PATCH');assert.equal((await call('store',null,shop.cookie)).status,401);assert.deepEqual((await call('products')).data.map(p=>p.id),[pr.data.id]);
   const fresh=createPlatform(dir);assert.equal(fresh.requireUser({headers:{cookie:user.cookie}}).username,'cocinero');
+  for(const actor of [user,shop]){
+   if(actor===shop)await call('admin/users',{id:shop.data.user.id,status:'active'},admin.cookie,'PATCH');
+   const username=actor.data.user.username;
+   await call('recovery',{username});
+   assert.ok((await call('admin',null,admin.cookie)).data.recoveries.some(u=>u.username===username));
+   assert.notEqual((await call('admin/recovery',{username,decision:'approve'},actor.cookie)).status,200);
+   const {code}=(await call('admin/recovery',{username,decision:'approve'},admin.cookie)).data;
+   const update={username,code,password:'Replacement_test_2026'};
+   assert.equal((await call('recovery/reset',{...update,code:'incorrect'})).status,400);
+   assert.equal((await call('recovery/reset',update)).status,200);
+   assert.equal((await call('recovery/reset',update)).status,400);
+   assert.equal((await call('account',null,actor.cookie)).data.user,null);
+   assert.equal((await call('login',{username,password:update.password})).status,200);
+  }
   await call('logout',{},user.cookie);assert.equal((await call('account',null,user.cookie)).data.user,null);
   assert.ok(JSON.parse(fs.readFileSync(path.join(dir,'plataforma.json'),'utf8')).users.every(u=>!u.password));
  }finally{await new Promise(resolve=>server.close(resolve));fs.rmSync(dir,{recursive:true,force:true})}

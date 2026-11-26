@@ -36,4 +36,4 @@ const server=http.createServer(async(req,res)=>{
     res.writeHead(200,{'Content-Type':type[path.extname(file)]||'application/octet-stream','Cache-Control':'no-cache'});fs.createReadStream(file).pipe(res);
   }catch(err){send(err.status||500,{error:err.status?err.message:'No se pudo completar la operación.'})}
 });
-server.listen(port,process.env.HOST||'127.0.0.1',()=>console.log('Mesa Semanal http://127.0.0.1:'+port));
+server.listen(port,process.env.HOST||'127.0.0.1',()=>console.log('Mesa Jack http://127.0.0.1:'+port));
