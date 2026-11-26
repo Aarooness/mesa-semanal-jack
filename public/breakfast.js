@@ -77,10 +77,10 @@ export function nutrition(rows){
  return {kcal,protein,fiber,vitamin,carb:sum(0),fat:sum(1)};
 }
 export function pie(n){
- const values=[['Carbohidratos',n.carb,4,'#dd9d20'],['Grasas',n.fat,9,'#257d75'],['Proteína',n.protein,4,'#8361bc']].filter(x=>x[1]>0);
+ const values=[['Carbohidratos',n.carb,4,'#20ddc9'],['Grasas',n.fat,9,'#257d75'],['Proteína',n.protein,4,'#8361bc']].filter(x=>x[1]>0);
  const energy=values.reduce((sum,[,g,k])=>sum+g*k,0);
  let start=0;
  const segments=values.map(([,g,k,color])=>{const prev=start;start+=100*g*k/energy;return color+' '+prev+'% '+start+'%'});
  const list=values.map(([name,g,k,color])=>'<li><i style="background:'+color+'"></i>'+name+' · '+num(g)+' g · '+num(100*g*k/energy)+' %</li>').join('');
- return '<div class="composition"><div class="pie" aria-hidden="true" style="background:conic-gradient('+segments.join(',')+')"></div><div><b>'+num(n.kcal)+' kcal</b><ul>'+list+'</ul>'+(n.fiber>0?'Fibra '+num(n.fiber)+' g · ':'')+(n.vitamin>0?'Vitamina C '+num(n.vitamin)+' mg':'')+'</div></div><small>Porcentajes de energía estimada de los tres macronutrientes.</small>';
+ return '<div class="composition"><div class="pie" aria-hidden="true" style="background:conic-gradient('+segments.join(',')+')"></div><div><b>'+num(n.kcal)+' kcal</b><ul>'+list+'</ul>'+(n.fiber>0?'Fibra '+num(n.fiber)+' g · ':'')+(n.vitamin>0?'Vitamina C '+num(n.vitamin)+' mg':'')+'</div></div>';
 }
