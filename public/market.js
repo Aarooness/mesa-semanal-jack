@@ -1,3 +1,4 @@
+import {copyList} from './copy-list.js';
 import {byId,money,stores,deliverySlots} from './data.js';
 const e=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 export let marketState={offers:[],orders:[],cart:[],reserved:[]};
@@ -35,7 +36,7 @@ export function basketPanel(user){
   if(!items.length)return '';
   return '<h3>'+label+'</h3>'+items.map(i=>'<div class="cart-item"><img src="'+e(i.photo||(i.food?'/fotos/'+i.food+'.png':'/fotos/parfait.jpg'))+'" alt=""><div><strong>'+e(i.name)+'</strong><small>'+e(i.shop)+' · '+i.qty+' × '+money(i.price)+(i.food?' · '+weight(i.qty*i.grams):'')+'</small></div><b>'+money(i.price*i.qty)+'</b>'+cartControls(i)+'</div>').join('');
  }).join('');
- return '<section class="panel"><h2>Mi canasta local</h2>'+groups+(cart.length?'<b>Total '+money(cart.reduce((n,i)=>n+i.price*i.qty,0))+'</b>'+payment('checkout'):'<p>Añade productos desde Tiendas.</p>')+'<a href="#locales">Ver tiendas</a></section>';
+ return '<section class="panel"><h2>Mi canasta local</h2>'+groups+(cart.length?'<b>Total '+money(cart.reduce((n,i)=>n+i.price*i.qty,0))+'</b>'+payment('checkout'):'<p>Añade productos desde Tiendas.</p>')+'<a href="#locales">Ver tiendas</a>'+copyList(cart.map(i=>i.food?[byId[i.food]?.name||i.name,i.qty*i.grams,'g']:[i.name,i.qty,'ud.']))+'</section>';
 }
 const fees={1:9,3:24,12:84};
 export function shopLogo(shop){return shop.logo?'<img class="shop-logo" src="'+e(shop.logo)+'" alt="">':'<span class="shop-initial">'+e(shop.name.charAt(0))+'</span>'}
